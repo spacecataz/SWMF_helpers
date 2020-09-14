@@ -313,7 +313,7 @@ def plot_results(fileY, fileZ, iFile=0, nFiles=1):
     a1.set_title('{} ({})'.format(pb.mhdname_to_tex(v1), mY[v1].attrs['units']))
                 
     stuff[-1].set_label('')
-    if args.mag: mY.add_b_magsphere(a1, DoOpen=True, DoTail=True)
+    if args.mag: mY.add_b_magsphere(a1, DoOpen=True)
     a2 = fig.add_subplot(222)
     stuff=mZ.add_contour('x','y',v2, 91, dolog=True, xlim=xrng, ylim=yrng,
                          add_cbar=True, target=a2, zlim=drng, cmap=cmap2)
@@ -360,7 +360,6 @@ def plot_results(fileY, fileZ, iFile=0, nFiles=1):
     fig.suptitle(args.title, size=18)
 
     # Save the figure (normal operation) or show figure (debug mode).
-    plt.show()
     if args.debug:
         plt.show()
     else:
