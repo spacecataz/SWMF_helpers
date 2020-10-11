@@ -76,12 +76,19 @@ if eff.size==0:
     print("Was this a steady state run?")
     exit()
 
-# Extract number of CPUs.
-f=os.popen("grep 'CON SWMF' %s" % logfile)
+# Find column number for nCPU info:
+f=os.popen(f"grep 'stride' {logfile}")
 lines=f.readlines()
 f.close()
 parts = lines[-1].split()
-nCpus = float(parts[-4])
+iCol = parts.index('nproc') - len(parts)
+
+# Extract number of CPUs.
+f=os.popen(f"grep 'CON SWMF' {logfile}")
+lines=f.readlines()
+f.close()
+parts = lines[-1].replace('#','').split()
+nCpus = float(parts[iCol])
 
 # Get "previous hour" values.
 PrevLoc = cpu_t >= (cpu_t[-1]-3600.0)
@@ -104,6 +111,7 @@ if EffRate < 0:
 else:
     print(("Efficiency is INCREASING by %8.2E per hour." % EffRate).center(55))
 print(("Efficiency is %8.2E per CPU."   % EffCpu).center(55))
+print((f"This simulation is using {nCpus:.0f} cores.").center(55))
 print(("%i CPUs required for Real Time." % nCpuRT).center(55))
 
 #print " Average Efficiency=%6.3fX Real Time" % (eff.mean())
