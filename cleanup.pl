@@ -131,7 +131,7 @@ if($allflag){
 
     print "Delete all Restart directories? (y or n)";
     chomp($ans = (<STDIN>));
-    system("rm -rf @restlist");
+    system("rm -rf @restlist") unless ($ans ne 'y');
 }
 
 print "CLEANING UP!\n";
