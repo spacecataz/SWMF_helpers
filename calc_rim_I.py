@@ -2,8 +2,8 @@
 
 '''
 From a series of Ridley_serial 2D output files, calculate the integrated
-radial current density for both hemispheres and save the resulting timeseries
-data into a new file.
+radial current density and max/min azimuthal current density for 
+both hemispheres and save the resulting timeseries data into a new file.
 
 The script will look for files named "it??????_??????_???.idl" in three
 separate places in the following order:
@@ -15,12 +15,13 @@ that you can run this script from the top-level of an SWMF run directory.
 
 The output file can be of two formats: simple ASCII or a Python Pickle.  
 The pickle will contain a tuple with seven numpy arrays: an array of datetimes,
-and then numpy arrays of total current, upward current, and downward current
-in the northern hemisphere; these three are then included for the southern
+and then numpy arrays of total current, upward current, downward current,
+maximum azimuthal current, and minimum azimuthal current, all in the northern 
+hemisphere; these values are then repeated for the southern
 hemisphere.  The ASCII files have a self-descriptive header.
 
 The variables are ordered in the pickle-formatted files as follows:
-time, nUp, nDown, nAll, sUp, sDown, sAll
+time, nUp, nDown, nAll, nPhiMax, nPhiMin, sUp, sDown, sAll, sPhiMax, sPhiMin
 ...where "n" or "s" represents northern or southern hemisphere and "up", 
 "down", and "all" is the FAC direction ("all" is net.)
 
@@ -76,29 +77,44 @@ time = np.zeros(nFiles, dtype=object)
 nUp, nDown, nAll = np.zeros(nFiles), np.zeros(nFiles), np.zeros(nFiles)
 sUp, sDown, sAll = np.zeros(nFiles), np.zeros(nFiles), np.zeros(nFiles)
 
+nPhiMax, nPhiMin = np.zeros(nFiles), np.zeros(nFiles)
+sPhiMax, sPhiMin = np.zeros(nFiles), np.zeros(nFiles)
+
 # Load up variables by looping over all files:
 for i, f in enumerate(file_list):
     ie = Iono(f)  #open file.
     ie.calc_I()   #integrate current.
-
+    ie.calc_j()   #get azimuthal current.
+    
     # Store time and north/south hemi integrated currents:
     time[i] = ie.attrs['time']
     nUp[i], nDown[i], nAll[i] = ie['n_Iup'], ie['n_Idown'], ie['n_I']
     sUp[i], sDown[i], sAll[i] = ie['s_Iup'], ie['s_Idown'], ie['s_I']
 
+    # Store maximum/minimum azimuthal currents:
+    nPhiMax[i], nPhiMin[i] = ie['n_jphi'].max(), ie['n_jphi'].min()
+    sPhiMax[i], sPhiMin[i] = ie['s_jphi'].max(), ie['s_jphi'].min()
+    
 # Now, save as a file:
 if args.outfile.split('.')[-1] == 'pkl':
     import pickle
     f = open(args.outfile, 'wb')
-    pickle.dump( (time, nUp, nDown, nAll, sUp, sDown, sAll), f)
+    pickle.dump((time,
+                 nUp, nDown, nAll, nPhiMax, nPhiMin,
+                 sUp, sDown, sAll, sPhiMax, sPhiMin), f)
     f.close()
 else:
     f = open(args.outfile, 'w')
     # Header:
     f.write('Time\tI_Up_North(MA)\tI_Down_North(MA)\tI_Total_North(MA)')
-    f.write(    '\tI_Up_South(MA)\tI_Down_South(MA)\tI_Total_South(MA)\n')
+    f.write(    '\tJphi_Max_North(A/m)\tJphi_Min_North(A/m)')
+    f.write(    '\tI_Up_South(MA)\tI_Down_South(MA)\tI_Total_South(MA)')
+    f.write(    '\tJphi_Max_South(A/m)\tJphi_Min_South(A/m)')
+
     for i, t in enumerate(time):
         tnow = t.isoformat()
-        f.write('{}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t'.format(tnow, nUp[i], nDown[i], nAll[i]))
-        f.write(    '{:12.5f}\t{:12.5f}\t{:12.5f}\n'.format(      sUp[i], sDown[i], sAll[i]))
+        f.write('{}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t'.format(
+            tnow, nUp[i], nDown[i], nAll[i], nPhiMax[i], nPhiMin[i]))
+        f.write('{:12.5f}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t{:12.5f}\n'.format(
+            sUp[i], sDown[i], sAll[i], sPhiMax[i], sPhiMin[i]))
     f.close()
