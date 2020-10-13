@@ -66,6 +66,9 @@ if not file_list:
 if not file_list:
     file_list=glob('./IE/ionosphere/it??????_??????_???.idl')
 
+# Sort the files (thanks, OSX):
+file_list.sort()
+    
 # Fix files if requested:
 if args.fix: 
     for f in file_list:
