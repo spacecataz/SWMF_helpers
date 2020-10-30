@@ -20,16 +20,24 @@ end   = False
 # Set up argruments:
 parser = ArgumentParser(description=__doc__,
                         formatter_class=RawDescriptionHelpFormatter)
-parser.add_argument("-m", "--mags", default='',
+parser.add_argument("-m", "--mags", action="store_true",
+                    help="Create summary plots of all virtual magnetometers.")
+parser.add_argument("--supermag", default='',
                     help="Plot magnetometer observations over model results "+
                     "using values in SuperMag output file given by argument "+
-                    "value (e.g, --mags 'mags.something'.")
-
-#parser.add_argument("-obs", "--obsdst", help="Fetch and plot observed dst on "+
-#                    " top of modeled values", action="store_true")
-#parser.add_argument("--debug", help="Only the first plot is created.  "+
-#                    "It is shown to the user and not saved.  Additional "+
-#                    "information is printed to screen.", action="store_true")
+                    "value (e.g, --supermag 'supermag_data_file.dat'.")
+parser.add_argument("-i", "--imffile", default='',
+                    help="Path to relevant SWMF-formatted IMF input file.  "+
+                    "Default action is to search in current directory for imf*dat")
+parser.add_argument("-c", "--currents", default='',
+                    help="Path to pickle containing integrated currents from IE "+
+                    "as calculated by calc_rim_I.py.  Default action is to grab "+
+                    "first found pickle file (*.pkl)")
+parser.add_argument("-obs", "--obs", help="Fetch and plot observed indices on "+
+                    " top of modeled values", action="store_true")
+parser.add_argument("--debug", help="Only the first plot is created.  "+
+                    "It is shown to the user and not saved.  Additional "+
+                    "information is printed to screen.", action="store_true")
 
 # Handle arguments:
 args = parser.parse_args()
@@ -40,7 +48,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from spacepy.plot import style, applySmartTimeTicks
-from spacepy.pybats import bats, ImfInput
+from spacepy.pybats import bats, rim, ImfInput
 
 style()
 
@@ -152,9 +160,9 @@ def plot_mags():
     mags.calc_dbdt()
 
     # Open observations as necessary:
-    do_obs = bool(args.mags)
+    do_obs = bool(args.supermag)
     if do_obs:
-        data = read_supermag(args.mags)
+        data = read_supermag(args.supermag)
 
     # Loop through magnetometers:
     stations = mags.attrs['namemag']
@@ -197,11 +205,101 @@ def plot_mags():
         fig.savefig(path+'{}.png'.format(s))
 
         plt.close('all')
-        
+
+def plot_iono():
+    '''
+    Create a plot to summarize ionospheric activity.
+    Requires total current calculation!
+    '''
+
+    from pickle import load
+    
+    # Some constants:
+    bzcolor = '#3333CC'
+    bycolor = '#ff9900'
+    pdcolor = '#CC3300'
+    north, south = '#0064b1', '#f58025'
+    
+    # Find log files:
+    log_path = glob('./IE/IE*.log')
+    ind_path = glob('./GM/geoind*.log')
+
+    if not(log_path) or not(ind_path):
+        raise ValueError('Cannot find log or geoindex file in IE/ and GM/')
+
+    # Open currents:
+    # time, nUp, nDown, nAll, nPhiMax, nPhiMin, sUp, sDown, sAll, sPhiMax, sPhiMin
+    current_file=glob('./*.pkl')[0] if not args.currents else args.currents
+    with open(current_file, 'rb') as f:
+        curr =  load(f) 
+    
+    # Get that IMF file:
+    imfpath = glob('./imf*.dat')[0] if not args.imffile else args.imffile
+    imf = ImfInput(imfpath)
+
+    # Open index/log files:
+    log = bats.BatsLog(log_path[0])
+    ind = bats.GeoIndexFile(ind_path[0])
+
+    # Create figure and axes:
+    f1 = plt.figure( figsize=(8.5,11) )
+    a1, a2, a3, a4, a5 = f1.subplots(5,1, sharex=True)
+
+    # CPCP:
+    a1.plot(log['time'], log['cpcpn'], c=north, lw=2., label='Northern Hemi.')
+    a1.plot(log['time'], log['cpcps'], c=south, lw=2., label='Southern Hemi.')
+    a1.set_ylabel('CPCP ($kV$)')
+    a1.legend(loc='best')
+
+    # Total current:
+    a2.plot(curr[0], curr[3], c=north, lw=2.)
+    a2.plot(curr[0], curr[8], c=south, lw=2.)
+    a2.set_ylabel('Total J$_{\parallel}$ ($MA$)')
+    
+    # Peak azimuthal:
+    a3.plot(curr[0], curr[4]/1000., c=north, lw=2.)
+    a3.plot(curr[0], curr[5]/1000., c=north, lw=2.)
+    a3.plot(curr[0], curr[9]/1000., c=south, lw=2.)
+    a3.plot(curr[0], curr[10]/1000.,c=south, lw=2.)
+    a3.set_ylabel('Max/Min J$_{\\Phi}$ ($mA/m$)')
+
+    # Add IMF data:
+    a4.plot(imf['time'], imf['bz'], color=bzcolor, lw=2)
+    a4.plot(imf['time'], imf['by'], color=bycolor, lw=2)
+    a4.hlines(0, ind['time'][0], ind['time'][-1], color='k', linestyles='dashed')
+    a4.legend(['B$_Z$', 'B$_Y$'], loc='best')
+    a4.set_ylabel('IMF ($nT$)')
+
+    # Add Pdyn:
+    a5.plot(imf['time'], imf['pram'], color=pdcolor)
+    a5.grid(False, axis='y')
+    a5.set_ylabel('P$_{dyn}$ ($nPa$)')
+
+    # Set axes ticks and x-labels:
+    applySmartTimeTicks(a5, ind['time'], dolabel=True)
+    for a in [a1, a2, a3, a4]:
+        a.set_xlabel('')
+        #a.set_xticklabels('')
+
+    a1.set_title('Ionospheric Summary: {:%Y-%m-%d}'.format(
+        log['time'][0]), size=20)
+    plt.tight_layout()
+
+    f1.savefig('./iono_summary.png')
+    
 def plot_indexes():
+    # Some constants:
+    bzcolor = '#3333CC'
+    bycolor = '#ff9900'
+    pdcolor = '#CC3300'
+    
     # Find log files:
     log_path = glob('./GM/log*.log')
     ind_path = glob('./GM/geoind*.log')
+
+    # Get that IMF file:
+    imfpath = glob('./imf*.dat')[0] if not args.imffile else args.imffile
+    imf = ImfInput(imfpath)
 
     if not(log_path) or not(ind_path):
         raise ValueError('Cannot find log or geoindex file in GM/')
@@ -209,30 +307,50 @@ def plot_indexes():
     # Open index/log files:
     log = bats.BatsLog(log_path[0])
     ind = bats.GeoIndexFile(ind_path[0])
-    
-    f1 = plt.figure( figsize=(10,10) )
 
+    # Create figure and axes:
+    f1 = plt.figure( figsize=(8.5,11) )
+    a1, a2, a3, a4, a5 = f1.subplots(5,1, sharex=True)
+    
     # Set line style for observations:
     obs_kwargs={'c':'k', 'ls':'--', 'alpha':.7}
     
     # Dst:
-    plot1=log.add_dst_quicklook(target=f1, loc=311,
-                                plot_sym=True, obs_kwargs=obs_kwargs)
+    plot1=log.add_dst_quicklook(target=a1,plot_sym=args.obs,
+                                obs_kwargs=obs_kwargs)
     
-    # Kp:  TEMPORARILY DISABLED.
-    #plot2=ind.add_kp_quicklook( target=f1, loc=412, plot_obs=True)
+    # Kp:  
+    plot2=ind.add_kp_quicklook(target=a2, loc=412, plot_obs=args.obs)
     
     # Ae:
-    plot3=ind.add_ae_quicklook( target=f1, loc=312, plot_obs=True, val='AE',
-                                obs_kwargs=obs_kwargs)
-    plot4=ind.add_ae_quicklook( target=f1, loc=313, plot_obs=True, val='AL',
-                                obs_kwargs=obs_kwargs)
+    plot3=ind.add_ae_quicklook(target=a3, plot_obs=args.obs, val='AU',
+                               obs_kwargs=obs_kwargs)
+    plot3=ind.add_ae_quicklook(target=a3, plot_obs=args.obs, val='AL',
+                               obs_kwargs=obs_kwargs,
+                               c=a3.get_lines()[0].get_color())
+    # Replace legend with something better.
+    a3.set_ylabel('AU/AL ($nT$)')
+    a3.legend( a3.lines[:2], ['Model AU/AL', 'Obs. AU/AL'], loc='best')
+    
+    # Add IMF data:
+    a4.plot(imf['time'], imf['bz'], color=bzcolor, lw=1.25)
+    a4.plot(imf['time'], imf['by'], color=bycolor, lw=1.25)
+    a4.hlines(0, ind['time'][0], ind['time'][-1], color='k', linestyles='dashed')
+    a4.legend(['B$_Z$', 'B$_Y$'], loc='best')
+    a4.set_ylabel('IMF ($nT$)')
 
-    for p in [plot1, plot3]:
-        p[1].set_xlabel('')
-        p[1].set_xticklabels('')
+    # Add Pdyn:
+    a5.plot(imf['time'], imf['pram'], color=pdcolor)
+    a5.grid(False, axis='y')
+    a5.set_ylabel('P$_{dyn}$ ($nPa$)')
 
-    plot1[1].set_title('Geomagnetic Indices: {:%Y-%m-%d}'.format(
+    # Set axes ticks and x-labels:
+    applySmartTimeTicks(a5, ind['time'], dolabel=True)
+    for a in [a1, a2, a3, a4]:
+        a.set_xlabel('')
+        #a.set_xticklabels('')
+
+    a1.set_title('Geomagnetic Indices: {:%Y-%m-%d}'.format(
         log['time'][0]), size=20)
     plt.tight_layout()
 
@@ -244,7 +362,9 @@ if __name__ == '__main__':
 
     print('Plotting indexes...')
     plot_indexes()
-    print('Plotting magnetometers...')
+    print('Plotting iono summary...')
+    plot_iono()
     if(args.mags):
-        print('\tObservation file = {}'.format(args.mags))
-    plot_mags()
+        print('Plotting magnetometers...')
+        print('\tObservation file = {}'.format(args.supermag))
+        plot_mags()
