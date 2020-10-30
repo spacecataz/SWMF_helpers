@@ -77,14 +77,12 @@ parser.add_argument('-start', default=None, help="Set the start date and time "+
                     "If not present, an attempt will be made to obtain it " +
                     "from local PARAM files.")
 parser.add_argument('-end', default=None, help="Same as -start but for end time")
-parser.add_argument('-z1', '--zlim1', default='.01,400', help='Set the color '+
+parser.add_argument('-z1', '--zlim1', default='.01,200', help='Set the color '+
                     'bar range for the Y=0 slice using two numbers, comma ' +
-                    'separated and grouped with brackets (e.g., '+
-                    '-z1 [.01,400]).  Log scale is used!')
+                    'separated (e.g., -z1 .01,200).  Log scale is used!')
 parser.add_argument('-z2', '--zlim2', default='.1,200', help='Set the color '+
                     'bar range for the Z=0 slice using two numbers, comma ' +
-                    'separated and grouped with brackets (e.g., '+
-                    '-z2 [.1,200]).  Log scale is used!')
+                    'separated (e.g., -z2 .1,200).  Log scale is used!')
 parser.add_argument('-xrng','--xrng', default='-35,15', help='Set the spatial '+
                     'extent in the GSM X direction via two comma-separated '+
                     'numbers with no spaces (e.g., -xrng -10,10)')
@@ -173,8 +171,8 @@ bzcolor = '#3333CC'
 pdcolor = '#CC3300'
 
 # Convert ranges from text to numbers:
-prng = np.array(args.zlim1[1:-1].split(','), dtype=float)
-drng = np.array(args.zlim2[1:-1].split(','), dtype=float)
+prng = np.array(args.zlim1.split(','), dtype=float)
+drng = np.array(args.zlim2.split(','), dtype=float)
 
 xrng = np.array(args.xrng.split(','), dtype=float)
 yrng = np.array(args.yrng.split(','), dtype=float)
