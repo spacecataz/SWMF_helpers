@@ -2,7 +2,14 @@
 
 '''
 Fetch orbit data from CDAweb for modern NASA missions and convert into
-SWMF input files.
+SWMF input files.  Data will be fetched from the given start time up to 
+the stop time, inclusive.
+
+Example:  Fetch orbits from the start of October 8, 2012 through the end of
+October 9, 2012 and plot results:
+
+>>> swmf_orbit_fetch.py -p 20121008 20121009
+
 '''
 
 from argparse import ArgumentParser
@@ -239,7 +246,8 @@ if len(args.time)!=2:
 try:
     # Try to parse date into datetime object.
     tstart = dt.datetime.strptime(args.time[0], '%Y%m%d')
-    tstop  = dt.datetime.strptime(args.time[1],  '%Y%m%d')
+    tstop  = dt.datetime.strptime(args.time[1],  '%Y%m%d') + \
+             dt.timedelta(hours=23,minutes=59,seconds=59)
 except ValueError:  # Specify the type of exception to be specific!
     # If we can't, stop the program and print help.
     print('ERROR: Could not parse date!')
