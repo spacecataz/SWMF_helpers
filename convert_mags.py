@@ -34,6 +34,9 @@ parser.add_argument('-o', '--outdir', type=str, default='./', help='Path to '
                     'If outdir does not exist, create it.')
 parser.add_argument('-d', '--debug', action='store_true',
                     help='Turn on debug info.')
+parser.add_argument('-c', '--comp', action='store_true',
+                    help='Add full contribution breakdown (e.g., dBnMhd, dBnFac, etc.)')
+
 # Parse arguments and stash magfile into convenience variable:
 args   = parser.parse_args()
 magfile= args.magfile
@@ -70,7 +73,6 @@ rawlines = infile.readlines()
 infile.close()
 
 # Create new files, write headers.
-files = []
 for i,s in enumerate(stats):
     if args.debug:
         print('Working on station {}...'.format(s))
@@ -82,9 +84,16 @@ for i,s in enumerate(stats):
     f.write('# Station: {}\n'.format(s.lower()))
     f.write('# Position (MAG): lon=       355.310 lat=      55.6300\n')
     f.write('Year Month Day Hour Min Sec GeomagLat GeomagLon B_NorthGeomag')
-    f.write(' B_EastGeomag B_DownGeomag\n[year] [month] [day] [hour] [min]')
+    f.write(' B_EastGeomag B_DownGeomag')
+    if args.comp:
+        f.write('dBnMhd dBeMhd dBdMhd dBnFac dBeFac dBdFac dBnHal dBeHal '+
+                'dBdHal dBnPed dBePed dBdPed')
+    f.write('\n[year] [month] [day] [hour] [min]')
     f.write(' [s] [deg] [deg] [nT] [nT] [nT]\n')
 
+    # Set the number of variables to write out:
+    index_stop = 27 if args.comp else 15
+    
     # Loop through lines related to this magnetometer:
     for l in rawlines[i::len(stats)]:
         # Parse line and turn into floating-point values.
@@ -96,6 +105,8 @@ for i,s in enumerate(stats):
         # Write lat-lon:
         f.write('{:13.3f}{:13.3f}'.format(0.0, 0.0))
         # Write perturbation:
-        f.write('{12:13.3f}{13:13.3f}{14:13.3f}\n'.format(*parts))
+        for p in parts[12:index_stop]:
+            f.write(f'{p:13.3f}')
+        f.write('\n')
 
     f.close()
