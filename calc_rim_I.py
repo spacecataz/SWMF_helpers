@@ -14,13 +14,13 @@ Once files are found, only those will be used in the calculation.  This means
 that you can run this script from the top-level of an SWMF run directory.
 
 The output file can be of two formats: simple ASCII or a Python Pickle.  
-The pickle will contain a tuple with seven numpy arrays: an array of datetimes,
+The pickle will contain a dictionary of 7 numpy arrays: an array of datetimes,
 and then numpy arrays of total current, upward current, downward current,
 maximum azimuthal current, and minimum azimuthal current, all in the northern 
 hemisphere; these values are then repeated for the southern
 hemisphere.  The ASCII files have a self-descriptive header.
 
-The variables are ordered in the pickle-formatted files as follows:
+The variables are stored in the pickle-formatted files with these keys:
 time, nUp, nDown, nAll, nPhiMax, nPhiMin, sUp, sDown, sAll, sPhiMax, sPhiMin
 ...where "n" or "s" represents northern or southern hemisphere and "up", 
 "down", and "all" is the FAC direction ("all" is net.)
