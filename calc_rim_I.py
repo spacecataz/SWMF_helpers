@@ -102,9 +102,10 @@ for i, f in enumerate(file_list):
 if args.outfile.split('.')[-1] == 'pkl':
     import pickle
     f = open(args.outfile, 'wb')
-    pickle.dump((time,
-                 nUp, nDown, nAll, nPhiMax, nPhiMin,
-                 sUp, sDown, sAll, sPhiMax, sPhiMin), f)
+    data = {'time':time,
+            'nUp':nUp,'nDown':nDown,'nAll':nAll,'nPhiMax':nPhiMax,'nPhiMin':nPhiMin,
+            'sUp':sUp,'sDown':sDown,'sAll':sAll,'sPhiMax':sPhiMax,'sPhiMin':sPhiMin}
+    pickle.dump(data, f)
     f.close()
 else:
     f = open(args.outfile, 'w')
