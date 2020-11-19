@@ -61,6 +61,8 @@ parser.add_argument("-s", "--sats", action="store_true", help="Add virtual "+
 parser.add_argument("-i", "--imf", default='', help="Specify the IMF file.  "+
                     "If none given, the script will attempt to find one in "+
                     "the pwd or up one directory.")
+parser.add_argument("-by", "--by", action='store_true',help="Turn on plotting "+
+                    "of IMF BY.  Default is to not show BY.")
 parser.add_argument("-v1", "--var1", default='p', help="Set the variable to "+
                     "plot in the Y=0 frame.  Defaults to 'p' for pressure")
 parser.add_argument("-v2", "--var2", default='rho', help="Set the variable to "+
@@ -168,6 +170,7 @@ def get_start_time(prefix):
 
 # Other constants of interest:
 bzcolor = '#3333CC'
+bycolor = '#9999FF'
 pdcolor = '#CC3300'
 
 # Convert ranges from text to numbers:
@@ -343,12 +346,15 @@ def plot_results(fileY, fileZ, iFile=0, nFiles=1):
     a3.vlines(tNow, ymin, ymax, linestyles='solid', color='g', linewidths=2.)
     a3.set_ylim([ymin, ymax])
 
-    a4.plot(imf['time'], imf['bz'],   color=bzcolor)
+    a4.plot(imf['time'], imf['bz'],   color=bzcolor, label='B$_Z$')
+    if args.by:
+        a4.plot(imf['time'], imf['by'], color=bycolor, label='B$_Y$')
+        a4.legend(loc='best', ncol=2)
     a5.plot(imf['time'], imf['pram'], color=pdcolor, lw=1.5)
     applySmartTimeTicks(a4, trange, dolabel=True)
     a4.grid(False, axis='y')
     a4.hlines(0, trange[0], trange[1], color=bzcolor, linestyles='dashed')
-    a4.set_ylabel('IMF B$_{Z}$ ($nT$)', color=bzcolor)
+    a4.set_ylabel('IMF '+(not args.by)*'B$_{Z}$ '+ '($nT$)', color=bzcolor)
     a5.set_ylabel('P$_{dyn}$ ($nPa$)',  color=pdcolor)
     a5.grid(False, axis='y')
     ymin, ymax = a4.get_ylim()
