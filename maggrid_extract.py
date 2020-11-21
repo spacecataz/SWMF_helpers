@@ -164,10 +164,12 @@ if args.debug:
 # Create magnetometer names.  3-letter names be damned.
 # Write names to file one at a time.
 out.write(f'\t{nMags} magnetometers: ')
-names = np.zeros( [nlon, nlat], dtype='U10')
+names = np.zeros( [nlon, nlat], dtype='U11')
 for i, lon in enumerate(elon):
     for j, lat in enumerate(elat):
-        names[i,j] = f'mag_{lon:03.0f}_{lat:02.0f}'
+        l_now = np.abs(lat) # Get absolute value of latitude.
+        prefix = 's' if lat< 0 else 'n' # Set north/south prefix
+        names[i,j] = f'mag_{lon:03.0f}_{prefix}{l_now:02.0f}'
         out.write(f' {names[i,j]}')
 out.write('\n')
 
