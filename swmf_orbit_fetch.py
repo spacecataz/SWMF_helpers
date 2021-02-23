@@ -101,9 +101,9 @@ def plot_orbits(orbits, lim=[-20, 20], coord='GSM'):
 
     # meridional plane- add field lines:
     for L in [3, 6.6]:
-        x,y,z = b_line(L,0,0, 101)
+        x,z = b_line(L,  0, 101)
         a2.plot(x,z, 'k-', alpha=.5, zorder=1)
-        x,y,z = b_line(-L,0,0, 101)
+        x,z = b_line(-L, 0, 101)
         a2.plot(x,z, 'k-', alpha=.5, zorder=1)
 
     # Add orbits:
@@ -223,10 +223,12 @@ sats = {
                'time':'thd_state_epoch','coord':'GSM','units':'km'},
     'themise':{'set':'THE_L1_STATE', 'var':'the_pos_gsm',
                'time':'the_state_epoch','coord':'GSM','units':'km'},
-    'rbspa':{'set':'RBSP-A-RBSPICE_LEV-3_ESRHELT', 'var':'Position_GSM',
-             'time':'Epoch','coord':'GSM','units':'re'},
-    'rbspb':{'set':'RBSP-B-RBSPICE_LEV-3_ESRHELT', 'var':'Position_GSM',
-             'time':'Epoch','coord':'GSM','units':'re'},
+    #'rbspa':{'set':'RBSP-A-RBSPICE_LEV-3_ESRHELT', 'var':'Position_GSM',
+    #         'time':'Epoch','coord':'GSM','units':'re'},
+    'rbspa':{'set':'RBSPA_L2-1MIN_PSBR-RPS', 'var':'Position',
+             'time':'Epoch','coord':'GEO','units':'km'},
+    'rbspb':{'set':'RBSPB_L2-1MIN_PSBR-RPS', 'var':'Position',
+             'time':'Epoch','coord':'GEO','units':'km'},
 }
 
 # If info requested, print and close:
