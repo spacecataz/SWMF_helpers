@@ -8,6 +8,9 @@ Some of these are highly developed and powerful, others are quickly-assembled
 shell scripts.  Read the individual help information for full descriptions
 (use either the `-h` flag when calling or use `more` to read the file header).
 
+Many rely on Spacepy, sometimes on *development versions* of Spacepy.
+Users should be aware of this limitation when running into issues.
+
 ## Script Summary
 
 | Script Name | Description |
@@ -25,6 +28,7 @@ shell scripts.  Read the individual help information for full descriptions
 | plot_sim_summary.py | Create a summary plot for a geospace simulation. |
 | runeff.py | Check the run efficiency of a simulation using its log file. |
 | swmf_orbit_fetcy.py | Fetches satellite trajectories and creates SWMF virtual satellite input files. |
+| mag_compare.py | Generate quick-look data-model comparisons for SWMF and SuperMag magnetometer data. |
 
 ## Dependencies
 Dependencies are not consistent across all scripts.  For example,
@@ -41,5 +45,5 @@ This table quickly summarizes what is needed:
 |Matplotlib 3.1.X | All visualization done with MPL. |
 |Scipy 1.3.X | Requirement for Spacepy |
 |NASA CDF | >=3.6.X | Requirement for Spacepy |
-|Spacepy >=0.2.0| Handles SWMF output, expedites visualization. |
+|Spacepy >=0.2.3| Handles SWMF output, expedites visualization. |
 |ffmpeg | Used to convert images into movie files. |
