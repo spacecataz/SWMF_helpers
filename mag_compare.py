@@ -81,7 +81,7 @@ def comp_mag(name, obs, mod, interactive=False):
     fig.tight_layout()
 
     if not interactive:
-        fig.savefig(f'./{name}.png')
+        fig.savefig(f'{args.outdir}/{name}.png')
         plt.close('all')
 
 
@@ -93,6 +93,12 @@ if not os.path.exists(args.outdir):
 obs = SuperMag(args.obs)
 mod = bats.MagFile(args.mod)
 
+nStats = len(mod.attrs['namemag'])
+
 # Get list of magnetometers
-for station in mod.attrs['namemag']:
-    if station in obs: comp_mag(station, obs, mod[station])
+for i, station in enumerate(mod.attrs['namemag']):
+    print(f'Working on station {i} of {nStats}: {station}')
+    if station in obs: 
+        comp_mag(station, obs, mod[station])
+    else:
+        print('\t...no match.')
