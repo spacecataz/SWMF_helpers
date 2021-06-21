@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 Parse the LFS Quota command and print it in a
 human-readable way.

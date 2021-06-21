@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 Examine an SWMF logfile and determine the simulation efficiency as a percent
 real time.  Basic values are written to screen; a plot in PNG format can be

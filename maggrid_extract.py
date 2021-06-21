@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 Given a series of magnetometer grid output from the SWMF, extract the results
 at certain lat/lon locations and save as a single magnetometer output 

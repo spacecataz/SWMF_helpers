@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 This script will create a set of data-model comparisons between a given
 SWMF magnetometer output file and any matching magnetometers (by 3 letter IAGA

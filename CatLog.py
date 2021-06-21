@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 Concatenate multiple logfiles with the generic SWMF format (flat, column-
 organized ascii) into a single log file that does not contain any over-

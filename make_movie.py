@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 If FFMpeg is installed, it is simple to make movies out of a series
 of PyBats PNG files.  Just use this script!  It's not just for PyBats;

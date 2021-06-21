@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 This script generates a series of PNG figures characterizing a SWMF simulation.
 Each plot is arranged as follows:

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 '''
 For a SWMF simulation for space weather at Earth applications, make a 

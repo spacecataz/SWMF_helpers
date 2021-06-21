@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 '''
 From a series of Ridley_serial 2D output files, calculate the integrated
