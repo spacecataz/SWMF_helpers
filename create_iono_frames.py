@@ -102,9 +102,10 @@ def create_figure(iefile):
     return fig
     
 if __name__ == '__main__':
-    pass
     iefiles = glob('IE/it*.idl')
+    if not iefiles: iefiles=glob('IE/it*.idl.gz')
 
     for ie in iefiles:
+        print(f'Working on file {ie}...')
         fig=create_figure(ie)
         plt.close('all')
