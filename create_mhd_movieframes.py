@@ -79,21 +79,26 @@ parser.add_argument('-start', default=None, help="Set the start date and time "+
                     "If not present, an attempt will be made to obtain it " +
                     "from local PARAM files.")
 parser.add_argument('-end', default=None, help="Same as -start but for end time")
-parser.add_argument('-z1', '--zlim1', default='.01,200', help='Set the color '+
-                    'bar range for the Y=0 slice using two numbers, comma ' +
-                    'separated (e.g., -z1 .01,200).  Log scale is used!')
-parser.add_argument('-z2', '--zlim2', default='.1,200', help='Set the color '+
-                    'bar range for the Z=0 slice using two numbers, comma ' +
-                    'separated (e.g., -z2 .1,200).  Log scale is used!')
-parser.add_argument('-xrng','--xrng', default='-35,15', help='Set the spatial '+
-                    'extent in the GSM X direction via two comma-separated '+
-                    'numbers with no spaces (e.g., -xrng -10,10)')
-parser.add_argument('-yrng','--yrng',default='-22.5,22.5',help='Set the spatial '
-                    +'extent in the GSM Y direction via two comma-separated '+
-                    'numbers with no spaces (e.g., -yrng -10,10)')
-parser.add_argument('-zrng','--zrng',default='-22.5,22.5',help='Set the spatial '
-                    +'extent in the GSM Z direction via two comma-separated '+
-                    'numbers with no spaces (e.g., -zrng -10,10)')
+parser.add_argument('-z1', '--zlim1', default=(.01,200), help='Set the color '+
+                    'bar range for the Y=0 slice using two numbers, space ' +
+                    'separated (e.g., -z1 .01 200).  Log scale is used!',
+                    type=float, nargs=2)
+parser.add_argument('-z2', '--zlim2', default=(.1,200), help='Set the color '+
+                    'bar range for the Z=0 slice using two numbers, space ' +
+                    'separated (e.g., -z2 .1 200).  Log scale is used!',
+                    type=float, nargs=2)
+parser.add_argument('-xrng','--xrng', default=(-35,15), help='Set the spatial '+
+                    'extent in the GSM X direction via two space-separated '+
+                    'numbers with no spaces (e.g., -xrng -10 10)',
+                    type=float, nargs=2)
+parser.add_argument('-yrng','--yrng',default=(-22.5,22.5),help='Set the spatial '
+                    +'extent in the GSM Y direction via two space-separated '+
+                    'numbers with no spaces (e.g., -yrng -10 10)',
+                    type=float, nargs=2)
+parser.add_argument('-zrng','--zrng',default=(-22.5,22.5),help='Set the spatial '
+                    +'extent in the GSM Z direction via two space-separated '+
+                    'numbers with no spaces (e.g., -zrng -10 10)',
+                    type=float, nargs=2)
 parser.add_argument('--info', action="store_true", help="Get information about"+
                     " simulation & available plot variables, but do not plot.")
 
@@ -174,12 +179,12 @@ bycolor = '#9999FF'
 pdcolor = '#CC3300'
 
 # Convert ranges from text to numbers:
-prng = np.array(args.zlim1.split(','), dtype=float)
-drng = np.array(args.zlim2.split(','), dtype=float)
+prng = np.array(args.zlim1)
+drng = np.array(args.zlim2)
 
-xrng = np.array(args.xrng.split(','), dtype=float)
-yrng = np.array(args.yrng.split(','), dtype=float)
-zrng = np.array(args.zrng.split(','), dtype=float)
+xrng = np.array(args.xrng)
+yrng = np.array(args.yrng)
+zrng = np.array(args.zrng)
 
 if args.debug:
     print( "Scales and ranges:")
