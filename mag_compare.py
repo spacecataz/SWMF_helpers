@@ -70,7 +70,7 @@ def comp_mag(name, obs, mod, interactive=False):
         ax.plot(mod['time'], mod['dB'+x1], label='SWMF')
         ax.plot(obs['time'], obs[name]['b'+x2], label='SuperMag')
         ax.set_ylabel(f'$\\Delta B_{x2}$ ($nT$)')
-        
+
         # Adjust
         applySmartTimeTicks(ax, mod['time'], dolabel=ax == a3)
 
@@ -98,7 +98,7 @@ nStats = len(mod.attrs['namemag'])
 # Get list of magnetometers
 for i, station in enumerate(mod.attrs['namemag']):
     print(f'Working on station {i} of {nStats}: {station}')
-    if station in obs: 
+    if station in obs:
         comp_mag(station, obs, mod[station])
     else:
         print('\t...no match.')
