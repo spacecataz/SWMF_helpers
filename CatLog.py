@@ -28,7 +28,6 @@ Examples:
 
 import sys
 import re
-from glob import glob
 from os import unlink
 from shutil import copy
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
@@ -76,7 +75,7 @@ parser.add_argument("-no", "--nocheck", action="store_true",
 parser.add_argument("--debug", action="store_true",
                     help="Print debug information.")
 
-# Handle arguments:
+# Handle arguments, noting that argparse expands linux wildcards.
 args = parser.parse_args()
 
 # Re-order files as the standard unix order will not reflect the
