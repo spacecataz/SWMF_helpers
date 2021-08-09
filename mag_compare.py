@@ -32,11 +32,6 @@ To-Do:
 import os
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
-from spacepy.pybats import bats
-from spacepy.plot import style, applySmartTimeTicks
-
-from supermag import SuperMag
-
 # Start by configuring the argparser:
 parser = ArgumentParser(description=__doc__,
                         formatter_class=RawDescriptionHelpFormatter)
@@ -49,9 +44,18 @@ parser.add_argument("-o", "--outdir", default='mag_compares', help="Set " +
                     "output directory for plots.  Defaults to ./mag_compares")
 args = parser.parse_args()
 
+
+# Post-argument imports:
+from spacepy.pybats import bats
+from spacepy.plot import style, applySmartTimeTicks
+
+from supermag import SuperMag, read_statinfo
+
 # Turn on Spacepy plot styles:
 style()
 
+# Load station info:
+mag_info = read_statinfo()
 
 def comp_mag(name, obs, mod, interactive=False):
     '''
@@ -76,7 +80,16 @@ def comp_mag(name, obs, mod, interactive=False):
 
     # Add legend/title
     a1.legend(loc='best')
-    a1.set_title(f'Magnetometer {name}')
+
+    # Build title for our plot using mag_info (if available):
+    if name in mag_info:
+        info = mag_info[name]
+        title = f"{info['station-name']} ({name}) " + \
+            f"(mlat={info['aacgmlat']:.1f}$^{{\\circ}}$, " + \
+            f" mlon={info['aacgmlon']:.1f}$^{{\\circ}}$)"
+    else:
+        title = f"Station {name}"
+    a1.set_title(title)
 
     fig.tight_layout()
 
