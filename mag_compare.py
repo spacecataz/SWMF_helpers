@@ -37,15 +37,19 @@ parser = ArgumentParser(description=__doc__,
                         formatter_class=RawDescriptionHelpFormatter)
 parser.add_argument("obs", type=str, metavar='observations',
                     help="Path of SuperMag observations file.")
-parser.add_argument("mod", type=str, metavar='model',
-                    help="Path of SWMF model results 'virtual magnetometer'" +
-                    " file.")
+parser.add_argument("mod", nargs='+', metavar='model',
+                    help="Path(s) of SWMF model results 'virtual magnetometer'" +
+                    " file(s).  Can specify as many as needed.")
 parser.add_argument("-o", "--outdir", default='mag_compares', help="Set " +
                     "output directory for plots.  Defaults to ./mag_compares")
+parser.add_argument("--debug", default=False, action='store_true',
+                    help="Turn on debugging mode.")
 args = parser.parse_args()
 
 
 # Post-argument imports:
+import matplotlib.pyplot as plt
+
 from spacepy.pybats import bats
 from spacepy.plot import style, applySmartTimeTicks
 
@@ -54,7 +58,11 @@ from supermag import SuperMag, read_statinfo
 # Turn on Spacepy plot styles:
 style()
 
+# Turn on interactive plotting mode when debug is set:
+#if args.debug: plt.ion()
+
 # Load station info:
+if args.debug: print('Loading magnetometer station info...')
 mag_info = read_statinfo()
 
 def comp_mag(name, obs, mod, interactive=False):
@@ -62,7 +70,6 @@ def comp_mag(name, obs, mod, interactive=False):
     Given a magnetometer with station name "name", compare the
     data and model together and save the plot.
     '''
-    import matplotlib.pyplot as plt
 
     # Create a figure with 3 subplots
     fig = plt.figure(figsize=(10, 10))
@@ -96,6 +103,8 @@ def comp_mag(name, obs, mod, interactive=False):
     if not interactive:
         fig.savefig(f'{args.outdir}/{name}.png')
         plt.close('all')
+    else:
+        plt.show()
 
 
 # Create output directory
@@ -104,14 +113,19 @@ if not os.path.exists(args.outdir):
 
 # Open our data:
 obs = SuperMag(args.obs)
-mod = bats.MagFile(args.mod)
+mod = [bats.MagFile(x) for x in args.mod]
 
+# changes things here!
+# Set station list.
 nStats = len(mod.attrs['namemag'])
 
 # Get list of magnetometers
 for i, station in enumerate(mod.attrs['namemag']):
     print(f'Working on station {i} of {nStats}: {station}')
     if station in obs:
-        comp_mag(station, obs, mod[station])
+        comp_mag(station, obs, mod[station], interactive=args.debug)
+        # If in debug mode, only show 1 plot.
+        if args.debug:
+            break
     else:
         print('\t...no match.')
