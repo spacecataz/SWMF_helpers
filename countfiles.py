@@ -23,7 +23,7 @@ dirs = []
 # Parse arguments.
 for arg in argv[1:]:
     if arg.lower()[:2] == '-h':
-        print __doc__
+        print(__doc__)
         exit()
     else: 
         dirs+= glob(arg)
