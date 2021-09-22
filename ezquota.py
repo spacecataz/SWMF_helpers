@@ -14,7 +14,7 @@ DTW 2009
 import os
 
 user = 'dwelling'
-drive= '/nobackupp8'
+drive= '/nobackupp17'
 
 # Execute lfsquota and obtain relevant data.
 f=os.popen('lfs quota -u %s %s' % (user, drive))
