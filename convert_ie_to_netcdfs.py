@@ -7,11 +7,12 @@ coordinates converted from geomagnetic to geographic.  The new output is
 written to a NetCDF file.
 '''
 
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
+
 import numpy as np
 from scipy.io.netcdf import netcdf_file
 from spacepy.pybats import rim
 
-    
 def combine(ie):
     '''
     Given an ionospheric slice, rotate to geographic coordinates.
@@ -151,16 +152,24 @@ def test_rotation():
     return ie
 
 if __name__ == '__main__':
-    from glob import glob
+
+
+    # Start by setting up and parsing arguments.
+    parser = ArgumentParser(description=__doc__,
+                            formatter_class=RawDescriptionHelpFormatter)
+    parser.add_argument("files", nargs='+',
+                        help="IE files to convert.  Accepts Unix wildcards.")
+    parser.add_argument("-o", "--outdir", default='./potential_netcdfs/',
+                        help="Set output directory for NetCDF files. " +
+                        "Defaults to ./potential_netcdfs")
+    args = parser.parse_args()
+    
     import os
     from spacepy.pybats.rim import Iono
 
-    outfile = "potential_netcdfs"
-    if not os.path.exists(outfile): os.mkdir(outfile)
+    if not os.path.exists(args.outdir): os.mkdir(args.outdir)
     
-    iefiles = glob('IE/it*.idl*') # Get zipped and non-zipped files
-
-    for ie in iefiles:
+    for ie in args.files:
         raw = Iono(ie)
         print(f"Working on {ie}...")
-        create_netcdf(raw, outdir=outfile)
+        create_netcdf(raw, outdir=args.outdir)
