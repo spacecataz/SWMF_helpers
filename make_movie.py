@@ -86,7 +86,7 @@ for i, ifile in enumerate(files):
 
 # Make movie
 cmd='ffmpeg -r {} -i '.format(rate) + \
-    '{}img_%08d.png -c:v libx264 -r 30 -pix_fmt yuv420p {}'.format(
+    '{}img_%08d.png -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx264 -r 30 -pix_fmt yuv420p {}'.format(
         tmp, outfile)
 
 print(cmd)
