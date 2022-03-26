@@ -80,6 +80,13 @@ def parse_ie_time(filename):
     return datetime.strptime(filename[-21:-8], '%y%m%d_%H%M%S')
 
 
+def absmax(ie, val):
+    '''Get the maximum absolute value for both hemispheres.'''
+    from numpy import abs
+
+    return max(abs(ie['n_'+val]).max(), abs(ie['s_'+val]).max())
+
+
 def create_figure(iefile, maxpot=None, trng=None):
     # Open IE file, calculate azimuthal current:
     ie = rim.Iono(iefile)
@@ -89,11 +96,11 @@ def create_figure(iefile, maxpot=None, trng=None):
 
     # Set colorbar ranges if not already set:
     if not args.maxpot:
-        args.maxpot = max(ie['n_phi'].max(), ie['s_phi'].max())
+        args.maxpot = absmax(ie, 'phi') #max(ie['n_phi'].max(), ie['s_phi'].max())
     if not args.maxfac:
-        args.maxfac = max(ie['n_jr'].max(), ie['s_jr'].max())
+        args.maxfac = absmax(ie, 'jr') #max(ie['n_jr'].max(), ie['s_jr'].max())
     if not args.maxj:
-        args.maxj = max(ie['n_jphi'].max(), ie['s_jphi'].max())
+        args.maxj = absmax(ie, 'jphi') #max(ie['n_jphi'].max(), ie['s_jphi'].max())
 
     # Create figure:
     fig = plt.figure(figsize=(10, 10))
@@ -106,14 +113,15 @@ def create_figure(iefile, maxpot=None, trng=None):
     # Add IE plots:
     with plt.style.context('default'):
         # FACs
-        ie.add_cont('n_jr', loc=431, zmax=args.maxfac, **kwargs)
-        ie.add_cont('s_jr', loc=434, zmax=args.maxfac, label='', **kwargs)
+        ie.add_cont('n_jr', loc=431, maxz=args.maxfac, **kwargs)
+        ie.add_cont('s_jr', loc=434, maxz=args.maxfac, label='', **kwargs)
         # Horizontal currents:
-        ie.add_cont('n_jphi', loc=432, zmax=args.maxpot, **kwargs)
-        ie.add_cont('s_jphi', loc=435, zmax=args.maxpot, label='', **kwargs)
+        ie.add_cont('n_jphi', loc=432, maxz=args.maxj, label=r'$J_{\phi}$',
+                    **kwargs)
+        ie.add_cont('s_jphi', loc=435, maxz=args.maxj, label='', **kwargs)
         # Potential:
-        ie.add_cont('n_phi', loc=433, zmax=args.maxj, **kwargs)
-        ie.add_cont('s_phi', loc=436, zmax=args.maxj, label='', **kwargs)
+        ie.add_cont('n_phi', loc=433, maxz=args.maxpot, **kwargs)
+        ie.add_cont('s_phi', loc=436, maxz=args.maxpot, label='', **kwargs)
 
     a4 = fig.add_subplot(413)
     a5 = fig.add_subplot(414, sharex=a4)
@@ -167,10 +175,11 @@ if __name__ == '__main__':
         # Get time from first file:
         end = parse_ie_time(iefiles[-1])
 
+    print(f"Processing files from {start} to {end}")
+
     for ie in iefiles:
         # Check time against limits:
         tnow = parse_ie_time(ie)
-        print(tnow)
         if (tnow < start) or (tnow > end):
             continue
 
