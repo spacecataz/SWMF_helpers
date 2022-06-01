@@ -16,6 +16,7 @@ Users should be aware of this limitation when running into issues.
 | Script Name | Description |
 | --------------------------|------------------------|
 | CatLog.py   | Carefully concatenate partial log files, virtual mag/sat files, and others into a single output file.  |
+| RepairLog.py | Repair logfile-like files that have overlapping time entries. |
 | calc_rim_I.py | Calculate integrated FAC from a series of RIM output files. |
 | cleanup.pl | Remove output, temporary, and restart files from an SWMF run directory. |
 | convert_mags.py | Convert SWMF virtual magnetometer files into CCMC-like output files. |
