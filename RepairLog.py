@@ -133,4 +133,3 @@ for filename in args.files:
                 continue
             f.write(line)
             last_time = time
-
