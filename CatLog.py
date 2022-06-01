@@ -60,8 +60,9 @@ def get_time(line, index, debug=False):
 # Create argument parser & set up arguments:
 parser = ArgumentParser(description=__doc__,
                         formatter_class=RawDescriptionHelpFormatter)
-parser.add_argument("-o", "--outfile", default=None, help="Rather than append" +
-                    " to first file, create new file to store output.")
+parser.add_argument("-o", "--outfile", default=None,
+                    help="Rather than append to first file, create new file " +
+                    "to store output.")
 parser.add_argument("files", nargs='+', help="Files to convert.  Can be " +
                     "explicit files or a unix wildcard.")
 parser.add_argument("-rm", "--remove", action="store_true",
@@ -203,8 +204,8 @@ for f in args.files:
     # Append data to first log.
     if len(lines) < 1:
         continue
-    for l in lines:
-        out.write(l)
+    for line in lines:
+        out.write(line)
     # Save "last time".
     if not args.nocheck:
         lasttime = get_time(lines[-1], time_locs)
