@@ -65,7 +65,8 @@ for filename in args.files:
     print(f"Repairing {filename}...")
 
     # If "keep"-ing originals, copy them now.
-    shutil.copy(filename, filename + '_orig')
+    if args.keep:
+        shutil.copy(filename, filename + '_orig')
 
     # Slurp entire file contents.
     with open(filename, 'r') as f:
