@@ -22,6 +22,8 @@ parser.add_argument("files", nargs='+', help="Files to scan; should be a " +
                     "class of SWMF output (e.g., RIM it*.dat files, MHD 2D " +
                     "cuts containing the same variable set, etc.). Can be " +
                     "explicit files or a unix wildcard.")
+parser.add_argument("--debug", "-d", action="store_true",
+                    help="Turn on debug information.")
 
 args = parser.parse_args()
 
@@ -38,6 +40,9 @@ elif re.search('mhd.*\.out(s)*', args.files[0]):
 else:
     print('\tUnrecognized file type; defaulting to IdlFile.')
     readfile = bats.IdlFile
+
+if args.debug:
+    print(f"File type detected is {filetype}")
 
 # Get number of files, start tracking "bad" files.
 nFile, nBad = len(args.files), 0
@@ -60,9 +65,13 @@ for v in varnames:
 
 # Loop through remaining files, continue scanning file:
 for i, f in enumerate(args.files[1:]):
+    if args.debug:
+        print(f"Loading file {f}...")
     try:
         data = readfile(f)
-    finally:
+    except Exception:
+        if args.debug:
+            raise IOError(f'{f} could not be opened.')
         print(f"Failed to load {f}")
         # If file fails to load, populate with nans:
         nBad += 1
