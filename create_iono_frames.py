@@ -24,10 +24,13 @@ from glob import glob
 from argparse import ArgumentParser
 
 from dateutil.parser import parse
+import matplotlib
 import matplotlib.pyplot as plt
 
 from spacepy.plot import style, applySmartTimeTicks
 from spacepy.pybats import rim, ImfInput
+
+matplotlib.use('Agg')
 
 # Initialize argument parser:
 parser = ArgumentParser(description=__doc__)
@@ -35,6 +38,10 @@ parser.add_argument("-i", "--imffile", default='',
                     help="Path to relevant SWMF-formatted IMF input file.  " +
                     "Default action is to search in current directory for " +
                     "imf*dat")
+parser.add_argument("-v", "--vars", default=['jr', 'jphi', 'phi'], nargs=3,
+                    help="Set the values to plot from jr, jphi, phi, sigmap," +
+                    " and sigmah.  Must provide 3 values. Default is " +
+                    "jr, jphi and phi.")
 parser.add_argument("-j", "--maxj", type=float, default=None,
                     help="Set the horizontal current color bar max. " +
                     "Defaults to file's maximum value for each frame.")
@@ -43,6 +50,9 @@ parser.add_argument("-f", "--maxfac", type=float, default=None,
                     "Defaults to file's maximum value for each frame.")
 parser.add_argument("-p", "--maxpot", type=float, default=None,
                     help="Set electric potential color bar max. " +
+                    "Defaults to file's maximum value for each frame.")
+parser.add_argument("-s", "--maxcond", type=float, default=None,
+                    help="Set conductance color bar max. " +
                     "Defaults to file's maximum value for each frame.")
 parser.add_argument("-colat", "--colat", type=int, default=40,
                     help="Set co-latitude plot limit for ionosphere " +
@@ -68,6 +78,12 @@ bzcolor = '#3333CC'
 bycolor = '#ff9900'
 pdcolor = '#CC3300'
 outdir = 'iono_figs/'
+
+# Set some labels:
+labs = {'jphi': r'$J_{\phi}$', 'phi': None, 'sigmah': None, 'sigmap': None,
+        'jr': None}
+mz = {'jphi': args.maxj, 'sigmah': args.maxcond, 'phi': args.maxpot,
+      'jr': args.maxj, 'sigmap': args.maxcond}
 
 if not os.path.exists(outdir):
     os.mkdir(outdir)
@@ -95,12 +111,9 @@ def create_figure(iefile, maxpot=None, trng=None):
     ie['s_jphi'] /= 1000.
 
     # Set colorbar ranges if not already set:
-    if not args.maxpot:
-        args.maxpot = absmax(ie, 'phi') #max(ie['n_phi'].max(), ie['s_phi'].max())
-    if not args.maxfac:
-        args.maxfac = absmax(ie, 'jr') #max(ie['n_jr'].max(), ie['s_jr'].max())
-    if not args.maxj:
-        args.maxj = absmax(ie, 'jphi') #max(ie['n_jphi'].max(), ie['s_jphi'].max())
+    for x in args.vars:
+        if mz[x] is None:
+            mz[x] = absmax(ie, x)
 
     # Create figure:
     fig = plt.figure(figsize=(10, 10))
@@ -112,16 +125,19 @@ def create_figure(iefile, maxpot=None, trng=None):
 
     # Add IE plots:
     with plt.style.context('default'):
+        for i, x in enumerate(args.vars):
+            ie.add_cont('n_'+x, loc=431+i, maxz=mz[x], label=labs[x], **kwargs)
+            ie.add_cont('s_'+x, loc=434+i, maxz=mz[x], label=labs[x], **kwargs)
         # FACs
-        ie.add_cont('n_jr', loc=431, maxz=args.maxfac, **kwargs)
-        ie.add_cont('s_jr', loc=434, maxz=args.maxfac, label='', **kwargs)
+        #ie.add_cont('n_jr', loc=431, maxz=args.maxfac, **kwargs)
+        #ie.add_cont('s_jr', loc=434, maxz=args.maxfac, label='', **kwargs)
         # Horizontal currents:
-        ie.add_cont('n_jphi', loc=432, maxz=args.maxj, label=r'$J_{\phi}$',
-                    **kwargs)
-        ie.add_cont('s_jphi', loc=435, maxz=args.maxj, label='', **kwargs)
+        #ie.add_cont('n_jphi', loc=432, maxz=args.maxj, label=r'$J_{\phi}$',
+        #            **kwargs)
+        #ie.add_cont('s_jphi', loc=435, maxz=args.maxj, label='', **kwargs)
         # Potential:
-        ie.add_cont('n_phi', loc=433, maxz=args.maxpot, **kwargs)
-        ie.add_cont('s_phi', loc=436, maxz=args.maxpot, label='', **kwargs)
+        #ie.add_cont('n_phi', loc=433, maxz=args.maxpot, **kwargs)
+        #ie.add_cont('s_phi', loc=436, maxz=args.maxpot, label='', **kwargs)
 
     a4 = fig.add_subplot(413)
     a5 = fig.add_subplot(414, sharex=a4)
