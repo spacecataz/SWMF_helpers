@@ -86,6 +86,7 @@ while(<*>){
     if($_ eq 'IM'){push @plotlist, 'IM/plots/*'}
     if($_ eq 'IE'){push @plotlist, 'IE/ionosphere/*'}
     if($_ eq 'PS'){push @plotlist, 'PS/Output/*'}
+    if($_ eq 'UA'){push @plotlist, 'UA/data/*'}
     if(/^RESTART_/){push @restlist, $_}
 }
 
