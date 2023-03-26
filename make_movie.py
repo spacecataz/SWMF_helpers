@@ -1,100 +1,78 @@
 #!/usr/bin/env python3
 '''
 If FFMpeg is installed, it is simple to make movies out of a series
-of PyBats PNG files.  Just use this script!  It's not just for PyBats;
+of PNG (or similar) files.  Just use this script!  It's not just for PyBats;
 it should work with any image series.
 
-This script will combine any files you give it (usual Linux wildcard 
+This script will combine any files you give it (usual Linux wildcard
 characters accepted) with the FFMpeg command to create a movie.
 
 As an intermediate step to making the movie, this script places
 the image files into /tmp/.  If this location is unavailable, use
 the -t option to change it.
 
-Usage:
-make_movie.py [options] [files]
-
-Options:
-
--h or -help:
-     Print this help information.
-
--t=[directory]:
-     Change the temporary directory.  Default is /tmp/
-
--r=[integer]:
-     Set the frame rate for the input PNGs.  Default is 25.  The lower this
-     number is, the slower the movie will progress through the PNGs.
-
--o=[file name]:
-     Set the output file name.  Note that the extension sets the
-     output format, so always include it!  .mpg, .mp4, and .avi
-     all work well with the latter two being necessary for non-
-     standard frame rates and the first two being preferrable for
-     portability.  Default name is 'movie.mpg'.
-
 '''
 
-# This is not used right now:
-#'''
-#-b=[integer]:
-#     Set the bit rate for ffmpeg.  Default is 2400 and is medium/low quality.
-#
-#'''
-
-import sys
 import glob
 import os
-import shutil
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
-# Default/initial values:
-files = []
-rate=25
-bps =2400
-tmp = '/tmp/'
-outfile = 'movie.mpg'
+# Potentially no longer used:
+# import shutil
 
-for option in sys.argv[1:]:
-    # Handle options:
-    if option[0] == '-':
-        if option == '-h' or option == '-help':
-            print(__doc__)
-            exit()
-        if option[0:2] == '-r':
-            loc = option.rfind('=')
-            rate = int(option[loc+1:])
-        if option[0:2] == '-o':
-            loc = option.rfind('=')
-            outfile = option[loc+1:]
-        if option[0:2] == '-t':
-            loc = option.rfind('=')
-            tmp = option[loc+1:]
-            if tmp[-1] != '/':
-                tmp = tmp + '/'
-        if option[:2] == '-b':
-            bps=int(option[option.rfind('=')+1:])
-    # Search for files that match option.
-    else:
-        files = files + glob.glob(option)
+# Start by configuring the argparser:
+parser = ArgumentParser(description=__doc__,
+                        formatter_class=RawDescriptionHelpFormatter)
+parser.add_argument("files", nargs='+', help="File glob pattern for " +
+                    "ordered images to convert (e.g., images_*.png).")
+parser.add_argument("-o", "--outfile", default='movie.mp4', help="Set the " +
+                    "output file name.  Note that the extension sets the " +
+                    "output format, so always include it!  .mpg, .mp4, and " +
+                    ".avi all work well with the latter two being necessary " +
+                    "for non-standard frame rates and the first two being " +
+                    "preferrable for portability.")
+parser.add_argument("-t", "--tempdir", default='/tmp/', help="Set the " +
+                    "temporary directory to which files are copied.")
+parser.add_argument("-r", "--rate", default=25, type=int, help="Set the " +
+                    "frame rate for the input PNGs.  Default is 25.  The " +
+                    "lower this number is, the slower the movie will " +
+                    "progress through the PNGs.")
+parser.add_argument("-n", "--nloop", default=0, type=int, help="Set number " +
+                    "of times the video loops. 0 is no looping, -1 is " +
+                    "infinite looping.")
+parser.add_argument("--debug", default=False, action='store_true',
+                    help="Turn on debugging mode.")
+args = parser.parse_args()
 
-if len(files) == 0:
+# Default/initial values not handled above:
+bps = 2400
+
+if len(args.files) == 0:
+    print("No files found to convert. Check input syntax.")
     exit()
 
-# Move files
-for i, ifile in enumerate(files):
-    shutil.copyfile(ifile, '%simg_%08d.png' % (tmp,i))
+# Create sorted list of file names to use as input:
+with open('.make_movie_input.txt', 'w') as outfile:
+    args.files.sort()
+    for f in args.files:
+        outfile.write(f"file '{f}'\n")
+
+# Move files (no longer used?)
+# for i, ifile in enumerate(args.files):
+#     shutil.copyfile(ifile, '%simg_%08d.png' % (tmp,i))
 
 # Make movie
-cmd='ffmpeg -r {} -i '.format(rate) + \
-    '{}img_%08d.png -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx264 -r 30 -pix_fmt yuv420p {}'.format(
-        tmp, outfile)
+cmd = 'ffmpeg -stream_loop {:d} -r {} '.format(args.nloop, args.rate) + \
+      '-f concat -i .make_movie_input.txt -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" ' + \
+      '-c:v libx264 -pix_fmt yuv420p {}'.format(args.outfile)
+# args.files -> args.tempdir
 
-print(cmd)
+if args.debug:
+    print(cmd)
 
+# Execute command:
 os.system(cmd)
-#os.system('ffmpeg -s hd720 -r %i -i %simg_%%08d.png %s'
-#          % (rate, tmp, outfile))
 
-# Remove temp files.
-for ifile in glob.iglob('/tmp/img_*.png'):
-    os.remove(ifile)
+# Remove temp file:
+if not args.debug:
+    os.remove('.make_movie_input.txt')
