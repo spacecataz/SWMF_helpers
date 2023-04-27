@@ -128,16 +128,6 @@ def create_figure(iefile, maxpot=None, trng=None):
         for i, x in enumerate(args.vars):
             ie.add_cont('n_'+x, loc=431+i, maxz=mz[x], label=labs[x], **kwargs)
             ie.add_cont('s_'+x, loc=434+i, maxz=mz[x], label=labs[x], **kwargs)
-        # FACs
-        #ie.add_cont('n_jr', loc=431, maxz=args.maxfac, **kwargs)
-        #ie.add_cont('s_jr', loc=434, maxz=args.maxfac, label='', **kwargs)
-        # Horizontal currents:
-        #ie.add_cont('n_jphi', loc=432, maxz=args.maxj, label=r'$J_{\phi}$',
-        #            **kwargs)
-        #ie.add_cont('s_jphi', loc=435, maxz=args.maxj, label='', **kwargs)
-        # Potential:
-        #ie.add_cont('n_phi', loc=433, maxz=args.maxpot, **kwargs)
-        #ie.add_cont('s_phi', loc=436, maxz=args.maxpot, label='', **kwargs)
 
     a4 = fig.add_subplot(413)
     a5 = fig.add_subplot(414, sharex=a4)
