@@ -26,9 +26,6 @@ time, nUp, nDown, nAll, nPhiMax, nPhiMin, sUp, sDown, sAll, sPhiMax, sPhiMin
 "down", and "all" is the FAC direction ("all" is net.)
 
 Output units are in Mega-Amps (MA).
-
-Failure may occur due to formatting errors in the Ridley_serial output files.
-This can be addressed effectively with the "--fix" argument (see below).
 '''
 
 # Start by setting up and parsing arguments.
@@ -39,11 +36,6 @@ parser.add_argument('--outfile', '-o', default='./current.txt', help=
                     'Set the name of the output file.  Allowable suffixes '+
                     'are  "*.txt" or "*.pkl" for ascii or Python pickle, ' +
                     'respectively.  Default is "./current.txt"')
-parser.add_argument('--fix', '-f', default=False, action='store_true', help=
-                    'Ridley_serial 2D output has poor format specification.'+
-                    '  This can be fixed by SpacePy.  If this program fails '+
-                    'while reading a 2D file, use this option to repair all '+
-                    'broken files [warning: slow].')
 parser.add_argument('--debug', '-d', default=False, action='store_true', help=
                     'Turn on verbose debug information.')
 
@@ -53,26 +45,26 @@ args = parser.parse_args()
 # Load relevant modules
 from glob import glob
 import numpy as np
-from spacepy.pybats.rim import Iono, fix_format
+from spacepy.pybats.rim import Iono
 
 # Check output file name:
 if args.outfile.split('.')[-1]!='pkl' and args.outfile.split('.')[-1]!='txt':
     raise ValueError('Unrecognized file format, use .pkl or .txt only.')
 
 # Get list of files:
-file_list = glob('./it??????_??????_???.idl')
+file_list = glob('./it??????_??????_???.idl*')
 if not file_list:
-    file_list=glob('./IE/it??????_??????_???.idl')
+    file_list=glob('./IE/it??????_??????_???.idl*')
 if not file_list:
-    file_list=glob('./IE/ionosphere/it??????_??????_???.idl')
+    file_list=glob('./IE/ionosphere/it??????_??????_???.idl*')
 
 # Sort the files (thanks, OSX):
 file_list.sort()
-    
-# Fix files if requested:
-if args.fix: 
+
+if args.debug:
+    print(f"Found {len(file_list)} total files:")
     for f in file_list:
-        fix_format(f)
+        print(f"\t{f}")
 
 # Prepare numpy arrays to hold results:
 nFiles = len(file_list)
@@ -82,6 +74,7 @@ sUp, sDown, sAll = np.zeros(nFiles), np.zeros(nFiles), np.zeros(nFiles)
 
 nPhiMax, nPhiMin = np.zeros(nFiles), np.zeros(nFiles)
 sPhiMax, sPhiMin = np.zeros(nFiles), np.zeros(nFiles)
+
 
 # Load up variables by looping over all files:
 for i, f in enumerate(file_list):
