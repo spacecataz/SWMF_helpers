@@ -16,6 +16,7 @@ SWMF output directory and concatenates output into ".outs".
 
 import os
 import re
+import sys
 from glob import glob
 from argparse import ArgumentParser
 
@@ -47,6 +48,13 @@ for f in ftypes:
     ftypes[f].sort()
     print(f"\t{f}\t({len(ftypes[f])} files found)")
 
+# Ask to continue before proceeding
+if args.debug:
+    response = input('Continue [Y/n]?')
+    if response == 'n':
+        sys.exit()
+
+
 # Now, concatenate.
 for ftype in ftypes:
     print(f"Working on group {ftype}")
@@ -67,8 +75,11 @@ for ftype in ftypes:
         for filenow in ftypes[ftype]:
             # Dump into output file
             if args.debug:
-                print(f"\tConcatenating {filenow}")
+                print(f"\tConcatenating {filenow}...")
             with open(filenow, 'rb') as f:
                 out.write(f.read())
-            if args.remove:
+        # Only remove files once writing of outs is complete:
+        if args.remove:
+            print('\tRemoving individual files...')
+            for filenow in ftypes[ftype]:
                 os.remove(filenow)
