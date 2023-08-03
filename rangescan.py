@@ -15,8 +15,7 @@ from spacepy.pybats import rim, bats
 
 # Build, populate, and execute argument parser:
 parser = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=
-                                 argparse.RawDescriptionHelpFormatter)
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
 parser.add_argument("files", nargs='+', help="Files to scan; should be a " +
                     "class of SWMF output (e.g., RIM it*.dat files, MHD 2D " +
