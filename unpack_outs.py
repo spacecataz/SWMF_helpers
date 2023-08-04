@@ -48,7 +48,7 @@ def gen_filename(prefix, date=None, time=None, iter=None):
     name = prefix
 
     if type(date) is dt.datetime:
-        name = name + f"_e{date:%Y%M%D-%H%M%S}-000"
+        name = name + f"_e{date:%Y%m%d-%H%M%S}-000"
     elif time is not None:
         hour = int(time/3600)
         mins = int((time-3600*hour)/60)
