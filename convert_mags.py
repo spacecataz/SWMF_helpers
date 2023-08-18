@@ -10,15 +10,15 @@ Issues: need to incorporate station lat/lon into output.
 
 # Ensure that we are using a version of python >= 2.7.
 import sys
-if sys.version_info < (2,7):
+if sys.version_info < (2, 7):
     print('ERROR: Python version must be >= 2.7')
     print('Current version: '+sys.version)
     exit()
-        
+
 
 import os
 import datetime as dt
-from glob     import glob
+from glob import glob
 from argparse import ArgumentParser
 
 # Default values:
@@ -28,18 +28,18 @@ parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('-m', '--magfile', type=str, default='./',
                     help='A path to a single magnetometer output file or '
-                    +' directory containing an output file.  Defaults to PWD.')
+                    + ' directory containing an output file.  Defaults to PWD.')
 parser.add_argument('-o', '--outdir', type=str, default='./', help='Path to '
-                    +'location to place output files.  Defaults to PWD.  '+
+                    + 'location to place output files.  Defaults to PWD.  ' +
                     'If outdir does not exist, create it.')
 parser.add_argument('-d', '--debug', action='store_true',
                     help='Turn on debug info.')
-parser.add_argument('-c', '--comp', action='store_true',
-                    help='Add full contribution breakdown (e.g., dBnMhd, dBnFac, etc.)')
+parser.add_argument('-c', '--comp', action='store_true', help='Add full '
+                    + 'contribution breakdown (e.g., dBnMhd, dBnFac, etc.)')
 
 # Parse arguments and stash magfile into convenience variable:
-args   = parser.parse_args()
-magfile= args.magfile
+args = parser.parse_args()
+magfile = args.magfile
 
 # Check outdir; create as necessary.
 if not os.path.isdir(args.outdir):
@@ -49,31 +49,31 @@ if not os.path.isdir(args.outdir):
 if os.path.isdir(magfile):
     found_files = glob(magfile+'/magnetometer*.mag')
     if not found_files:
-        raise(ValueError('No magnetometer file found in {}.'.format(magfile)))
+        raise ValueError('No magnetometer file found in {}.'.format(magfile))
     magfile = found_files[0]
 
 if args.debug:
     print('Working on file {}'.format(magfile))
-    
+
 # Open magnetometer file for reading:
 infile = open(magfile, 'r')
 
 # Read header to get list of variables and stations.
-stats    = infile.readline().split(':')[-1].split()
+stats = infile.readline().split(':')[-1].split()
 varnames = infile.readline().split()
 
 if args.debug:
     print('{} Stations found:'.format(len(stats)))
     for i, s in enumerate(stats):
-        print('\t#{:04d}=={:}'.format(i+1,s))
-          
+        print('\t#{:04d}=={:}'.format(i+1, s))
+
 
 # Slurp rest of file.
 rawlines = infile.readlines()
 infile.close()
 
 # Create new files, write headers.
-for i,s in enumerate(stats):
+for i, s in enumerate(stats):
     if args.debug:
         print('Working on station {}...'.format(s))
     f = open(args.outdir+'/{}.txt'.format(s), 'w')
@@ -93,15 +93,16 @@ for i,s in enumerate(stats):
 
     # Set the number of variables to write out:
     index_stop = 27 if args.comp else 15
-    
+
     # Loop through lines related to this magnetometer:
-    for l in rawlines[i::len(stats)]:
+    for line in rawlines[i::len(stats)]:
         # Parse line and turn into floating-point values.
-        parts = l.split()
+        parts = line.split()
         parts = [float(p) for p in parts]
 
         # Write time:
-        f.write('{1:4.0f}{2:5.0f}{3:5.0f}{4:5.0f}{5:5.0f}{6:5.0f}'.format(*parts))
+        f.write('{1:4.0f}{2:5.0f}{3:5.0f}{4:5.0f}{5:5.0f}{6:5.0f}'.format(
+                *parts))
         # Write lat-lon:
         f.write('{:13.3f}{:13.3f}'.format(0.0, 0.0))
         # Write perturbation:
