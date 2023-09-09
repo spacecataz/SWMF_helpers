@@ -15,7 +15,7 @@ October 9, 2012 and plot results:
 from argparse import ArgumentParser
 import sys
 import os
-import urllib
+from urllib import request, error
 import datetime as dt
 import xml.etree.ElementTree as ET
 
@@ -151,7 +151,7 @@ def fetch_cdf(sat, tstart, tstop, verbose=False):
         print(f'\tURL = {url}')
 
     # Request CDF and fetch XML response.
-    with urllib.request.urlopen(url) as response:
+    with request.urlopen(url) as response:
         xml = ET.parse(response).getroot()
 
     # Search XML response for errors.
@@ -167,7 +167,7 @@ def fetch_cdf(sat, tstart, tstop, verbose=False):
     filename = cdfurl.split('/')[-1]
     if verbose:
         print(f'\tCDF URL = {cdfurl}')
-    urllib.request.urlretrieve(cdfurl, filename)
+    request.urlretrieve(cdfurl, filename)
 
     # Return name of file to caller:
     return filename
@@ -348,7 +348,7 @@ for s in sats_now:
         print('\tObtaining orbit...')
     try:
         filename = fetch_cdf(sats[s], tstart, tstop, verbose=args.verbose)
-    except urllib.error.HTTPError:
+    except error.HTTPError:
         print('\tNO DATA FOR THIS SATELLITE/DATE')
         continue
 
