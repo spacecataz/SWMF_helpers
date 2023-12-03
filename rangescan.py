@@ -26,16 +26,20 @@ parser.add_argument("--debug", "-d", action="store_true",
 
 args = parser.parse_args()
 
-knowntypes = ['RimIono', 'Bats2d', 'IdlFile']
+knowntypes = ['RimIono', 'Bats2d', 'IdlFile', 'MagGrid']
 
 # Use the first file to guess at the proper parser:
 filetype = 'IdlFile'  # Default.
-if re.search('it.*\.idl(\.gz){0,1}', args.files[0]):
+filename = args.files[0].split('/')[-1]
+if re.search('it.*\.idl(\.gz){0,1}', filename):
     filetype = 'RimIono'
     readfile = rim.Iono
-elif re.search('mhd.*\.out(s)*', args.files[0]):
+elif re.search('mhd.*\.out(s)*', filename):
     filetype = 'Bats2d'
     readfile = bats.Bats2d
+elif re.search('mag_grid', filename):
+    filetype = 'MagGrid'
+    readfile = bats.MagGridFile
 else:
     print('\tUnrecognized file type; defaulting to IdlFile.')
     readfile = bats.IdlFile
