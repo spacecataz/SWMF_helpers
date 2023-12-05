@@ -199,6 +199,9 @@ for i, f in enumerate(file_list):
     mag = MagGridFile(f)
 
     for i in range(mag.attrs['nframe']):
+        # Switch frame:
+        mag.switch_frame(i)
+
         # Ensure we're in time range:
         if mag.attrs['time'] > t2:
             continue
