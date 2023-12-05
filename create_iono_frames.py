@@ -30,8 +30,6 @@ import matplotlib.pyplot as plt
 from spacepy.plot import style, applySmartTimeTicks
 from spacepy.pybats import rim, ImfInput
 
-matplotlib.use('Agg')
-
 # Initialize argument parser:
 parser = ArgumentParser(description=__doc__)
 parser.add_argument("-i", "--imffile", default='',
@@ -60,11 +58,19 @@ parser.add_argument("-colat", "--colat", type=int, default=40,
 parser.add_argument('-start', default=None, help="Set the start date and " +
                     "time of the simulation using the format " +
                     "YYYY-MM-DDTHH:MN:SS.")
+parser.add_argument('-d', '--debug', action='store_true',
+                    help="Turn on debug output.")
+parser.add_argument('-cont', '--cont', action='store_true',
+                    help="If set, it will 'continue' a previous call by " +
+                    "skipping all files where an output PNG already exists." +
+                    " This is useful for continuing an aborted session.")
 parser.add_argument('-end', default=None,
                     help="Same as -start but for end time")
 
 # Handle arguments:
 args = parser.parse_args()
+if not args.debug:
+    matplotlib.use('Agg')
 
 # Switch to spacepy's style:
 style()
@@ -93,7 +99,9 @@ def parse_ie_time(filename):
     '''Get a datetime from an IE file name'''
     from datetime import datetime
 
-    return datetime.strptime(filename[-21:-8], '%y%m%d_%H%M%S')
+    zipped = '.gz' in filename
+    return datetime.strptime(filename[-21-zipped*3:-8-zipped*3],
+                             '%y%m%d_%H%M%S')
 
 
 def absmax(ie, val):
@@ -103,12 +111,20 @@ def absmax(ie, val):
     return max(abs(ie['n_'+val]).max(), abs(ie['s_'+val]).max())
 
 
-def create_figure(iefile, maxpot=None, trng=None):
-    # Open IE file, calculate azimuthal current:
-    ie = rim.Iono(iefile)
-    ie.calc_j()
-    ie['n_jphi'] /= 1000.
-    ie['s_jphi'] /= 1000.
+def create_figure(iefile, maxpot=None, trng=None, outname='iono_fig.png'):
+    try:
+        ie = rim.Iono(iefile)
+    except (ValueError, IndexError) as error:
+        print(f'ERROR opening file {iefile} ({error})')
+        return None
+
+    # Calculate azimuthal current:
+    if 'n_jx' in ie:
+        ie.calc_j()
+        if 'n_jphi' not in ie:
+            raise ValueError('Horizontal currents not in IE output.')
+        ie['n_jphi'] /= 1000.
+        ie['s_jphi'] /= 1000.
 
     # Set colorbar ranges if not already set:
     for x in args.vars:
@@ -152,7 +168,7 @@ def create_figure(iefile, maxpot=None, trng=None):
     a5.vlines(ie.attrs['time'], lim[0], lim[1], colors='k',
               linestyles='dashed', linewidths=2)
 
-    fig.savefig(outdir+f'iono_t{ie.attrs["time"]:%Y%m%d_%H%M%S}.png')
+    fig.savefig(outname)
 
     return fig
 
@@ -160,10 +176,12 @@ def create_figure(iefile, maxpot=None, trng=None):
 if __name__ == '__main__':
     # Get list of files to work on:
     iefiles = glob('IE/it*.idl')
-    iefiles.sort()
-
     if not iefiles:
         iefiles = glob('IE/it*.idl.gz')
+    iefiles.sort()
+
+    if args.debug:
+        print(f"Found {len(iefiles)} files.")
 
     # Set time limits for plot:
     if args.start:
@@ -171,6 +189,8 @@ if __name__ == '__main__':
         start = parse(args.start)
     else:
         # Get time from first file:
+        if args.debug:
+            print(f"Obtaining start time from {iefiles[0]}...")
         start = parse_ie_time(iefiles[0])
 
     # And again for end time:
@@ -179,6 +199,8 @@ if __name__ == '__main__':
         end = parse(args.end)
     else:
         # Get time from first file:
+        if args.debug:
+            print(f"Obtaining start time from {iefiles[0]}...")
         end = parse_ie_time(iefiles[-1])
 
     print(f"Processing files from {start} to {end}")
@@ -189,7 +211,18 @@ if __name__ == '__main__':
         if (tnow < start) or (tnow > end):
             continue
 
+        # Create figure file name:
+        outname = outdir+f'iono_t{tnow:%Y%m%d_%H%M%S}.png'
+
+        # Skip if file exits in "continue" mode.
+        if args.cont and os.path.exists(outname):
+            continue
+
         # Create figure for current file:
         print(f'Working on file {ie}...')
-        fig = create_figure(ie, trng=[start, end])
-        plt.close('all')
+        fig = create_figure(ie, trng=[start, end], outname=outname)
+        if args.debug:
+            plt.show()
+            break
+        else:
+            plt.close('all')
