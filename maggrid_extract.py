@@ -28,13 +28,13 @@ from spacepy.pybats import parse_filename_time
 
 parser = ArgumentParser(description=__doc__,
                         formatter_class=RawDescriptionHelpFormatter)
-parser.add_argument('lons', nargs=2, type=float, help='Set the latitude ' +
+parser.add_argument('lons', nargs=2, type=float, help='Set the longitude ' +
                     'range over which to extract.')
 parser.add_argument('lats', nargs=2, type=float, help='Set the latitude ' +
                     'range over which to extract.')
-parser.add_argument('--lonskip', '-xs', default=1, type=int, help=
-                    'Set the cadence with which to sample. A cadence of 2 ' +
-                    'will skip every other longitude entry.')
+parser.add_argument('--lonskip', '-xs', default=1, type=int,
+                    help='Set the cadence with which to sample. A cadence ' +
+                    'of 2 will skip every other longitude entry.')
 parser.add_argument('--latskip', '-ys', default=1, type=int, help=
                     'Set the cadence with which to sample. A cadence of 2 ' +
                     'will skip every other latitude entry.')
@@ -47,9 +47,10 @@ parser.add_argument('--tstop', '-t2', default=None, help=
                     'before the stop time will be included.  ' +
                     'String format should be YYYY-MM-DDTHH:MN:SS')
 parser.add_argument('--dir', default='.', help='Set the name of the run ' +
-                    'directory in which to search for files.  Defaults to PWD.')
-parser.add_argument('--outfile', '-o', default='extracted_mags.mag', help=
-                    'Set the name of the output file.  ' +
+                    'directory in which to search for files.  ' +
+                    'Defaults to PWD.')
+parser.add_argument('--outfile', '-o', default='extracted_mags.mag',
+                    help='Set the name of the output file.  ' +
                     'Defaults to extracted_mags.mag')
 parser.add_argument('--info', '-i', default=False, action='store_true', help=
                     'Print grid info to stdout, quit.')
@@ -60,61 +61,65 @@ parser.add_argument('--debug', '-d', default=False, action='store_true', help=
 args = parser.parse_args()
 
 # Get list of files, set output directory.
-file_list = glob(args.dir+'/mag_grid*.out')
+file_list_raw = glob(args.dir+'/mag_grid*.out') + \
+                glob(args.dir+'/mag_grid*.outs')
 outdir = args.dir+'/'
-if not file_list:
-    file_list = glob(args.dir+'/GM/mag_grid*.out')
+if not file_list_raw:
+    file_list_raw = glob(args.dir+'/GM/mag_grid*.out') + \
+                    glob(args.dir+'/GM/mag_grid*.outs')
     outdir = outdir+'GM/'
-if not file_list:
-    file_list = glob(args.dir+'/GM/IO2/mag_grid*.out')
+if not file_list_raw:
+    file_list_raw = glob(args.dir+'/GM/IO2/mag_grid*.out') + \
+                    glob(args.dir+'/GM/IO2/mag_grid*.outs')
     outdir = outdir+'GM/IO2/'
-if not file_list:
+if not file_list_raw:
     raise ValueError(f"Could not find any MagGrid files in {args.dir}")
 
+# Sort files to get a rough ordering in time.
+file_list_raw.sort()
 
-###### CONSTANTS ##########
-varlist = 'dBn dBe dBd dBnMhd dBeMhd dBdMhd dBnFac dBeFac ' + \
-          'dBdFac dBnHal dBeHal dBdHal dBnPed dBePed dBdPed'
+# Collect the time start/stop for each file. Note that if a file does not
+# have a datetime associated with it in the title, it will be discarded.
+tstarts, tends = [], []
+file_list = []
+for i, f in enumerate(file_list_raw):
+    tfile = parse_filename_time(f)[-1]
+    # No datetime in filename? Discard that file.
+    if tfile is None:
+        if args.debug:
+            print(f'No time info found. Discarding file {f}')
+    file_list.append(f)
+    if '.outs' in f:
+        tstarts.append(tfile[0])
+        tends.append(tfile[-1])
+    else:
+        tstarts.append(tfile)
+        tends.append(tfile)
 
-###### SET UP #######
-nfiles_all = len(file_list)
-
-out = open(outdir+args.outfile, 'w')
-
-# Get file times:
-t1_all = parse_filename_time(file_list[0])[-1]
-t2_all = parse_filename_time(file_list[-1])[-1]
+if args.debug:
+    print(f"Found {len(file_list)} files with the following time ranges: ")
+    for i, f in enumerate(file_list):
+        print(f"\t{f}\n\t\t{tstarts[i]}--{tends[i]}")
 
 # Get time from files OR flags:
 if not args.tstart:
-    t1 = t1_all
+    t1 = tstarts[0]
 else:
     t1 = parse(args.tstart)
 
 if not args.tstop:
-    t2 = t2_all
+    t2 = tends[-1]
 else:
     t2 = parse(args.tstop)
 
-# Reduce file list appropriately:
-if t1 != t1_all:
-    for i in range(nfiles_all):
-        tnow = parse_filename_time(file_list[0])[-1]
-        # print(t1, tnow) #debugging line
-        if tnow < t1:
-            file_list.pop(0)
-        if tnow >= t1:
-            break
+# ##### CONSTANTS ##########
+varlist = 'dBn dBe dBd dBnMhd dBeMhd dBdMhd dBnFac dBeFac ' + \
+          'dBdFac dBnHal dBeHal dBdHal dBnPed dBePed dBdPed'
+
+# ##### SET UP #######
 nfiles = len(file_list)
-if t2 != t2_all:
-    for i in range(nfiles):
-        tnow = parse_filename_time(file_list[-1])[-1]
-        # print(t2, tnow) #debugging line
-        if tnow > t2:
-            file_list.pop(-1)
-        if tnow <= t2:
-            break
-nfiles = len(file_list)
+
+out = open(outdir+args.outfile, 'w')
 
 # Open first file, get information:
 mag = MagGridFile(file_list[0])
@@ -125,12 +130,12 @@ dLat = lats[1]-lats[0]
 
 if args.debug or args.info:
     print('Mag Grid File info:')
-    print(f'\tNumber of available files = {nfiles_all}')
+    print(f'\tNumber of available files = {nfiles}')
     print(f'\tFiles have {lons.size} X {lats.size} lon-lats')
     print(f'\tLon range is {lons[0]} -- {lons[-1]} (dLon={dLon})')
     print(f'\tLat range is {lats[0]} -- {lats[-1]} (dLat={dLat})')
-    print(f'\tFirst file time = {t1_all}')
-    print(f'\tLast file time  = {t2_all}')
+    print(f'\tFirst file time = {tstarts[0]}')
+    print(f'\tLast file time  = {tends[-1]}')
 
 if args.info:
     exit()
@@ -180,27 +185,46 @@ out.write('\n')
 out.write('nstep year mo dy hr mn sc msc station X Y Z '+varlist+'\n')
 
 # Write magnetometer file:
-for f in file_list:
+tnow = t1
+for i, f in enumerate(file_list):
+    # Check file time.
+    # If we do not include the current time, skip ahead.
+    if tstarts[i] < tnow and tends[i] < tnow:
+        continue
+    # If we are outside the time bounds, skip.
+    if tends[i] < t1 or tstarts[i] > t2:
+        continue
+
     # Open file:
     mag = MagGridFile(f)
 
-    # Loop over all lons/lats:
-    for i, il in enumerate(list(ilon)):
-        for j, jl in enumerate(jlat):
+    for i in range(mag.attrs['nframe']):
+        # Ensure we're in time range:
+        if mag.attrs['time'] > t2:
+            continue
 
-            # Write time and iteration:
-            out.write('{:8d} '.format(mag.attrs['iter']))
-            out.write('{:%Y %m %d %H %M %S} 000 '.format(mag.attrs['time']))
+        # Loop over all lons/lats:
+        for i, il in enumerate(list(ilon)):
+            for j, jl in enumerate(jlat):
 
-            # Write mag number:
-            imag = (i+1)*(j+1)
-            out.write(f'{imag:4d}')
+                # Write time and iteration:
+                out.write('{:8d} '.format(mag.attrs['iter']))
+                out.write('{:%Y %m %d %H %M %S} 000 '.format(mag.attrs['time']))
 
-            # Fake XYZ:
-            out.write(3*' {:12.5E}'.format(0.0))
+                # Write mag number:
+                imag = (i+1)*(j+1)
+                out.write(f'{imag:4d}')
 
-            # Write the rest of the record:
-            for v in varlist.split():
-                out.write(' {:12.5E}'.format(mag[v][il, jl]))
-            out.write('\n')
+                # Fake XYZ:
+                out.write(3*' {:12.5E}'.format(0.0))
+
+                # Write the rest of the record:
+                for v in varlist.split():
+                    out.write(' {:12.5E}'.format(mag[v][il, jl]))
+                out.write('\n')
+
+        # Update the current time:
+        tnow = mag.attrs['time']
+
+# All finished. Close file.
 out.close()
