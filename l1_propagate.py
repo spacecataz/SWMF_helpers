@@ -9,15 +9,19 @@ would take to travel from the L1 position to the upstream BATS-R-US boundary.
 The travel time is taken using the parcel's current Earthward flow speed
 (Vx), yielding a dynamic time adjustment.
 
+If spacecraft position is found in the file, it is used to set the distance
+over which the signal will be propagated dynamically. If not found, a static
+distance will be used (distance to L1 point).
+
 CURRENT ASSUMPTIONS (to change):
 - GSM coordinates for B, V vectors.
-- The position of the S/C is not used, a constant L1 distance is employed.
 - Works only with Wind CDF data files.
 - IMF and solar wind values have same time cadence.
 
 Wind spacecraft CDFs must contain the following variables:
 | Variable Name(s) | Description                                            |
 |------------------|--------------------------------------------------------|
+| XGSM (optional)  | Distance from Earth (Re) in GSM/GSE coordinates.       |
 | BX, BY, BZ       | Vector magnetic field (nT) data in GSM coordinates.    |
 | VX, VY, VZ       | Vector solar wind velocity (km/s) in GSM coordinates.  |
 | Np               | Proton number density (1/ccm)                          |
@@ -73,15 +77,24 @@ raw = {'bx': obs['BX'][...], 'by': obs['BY'][...], 'bz': obs['BZ'][...],
        'n': obs['Np'][...], 't': obs['TEMP'][...]}
 time = obs['Epoch'][...]
 
+# Get S/C distance. If not in file, use approximation.
+if 'XGSM' in obs:
+    print('S/C location found! Using dynamic location.')
+    raw['X'] = obs['XGSM'][...]*RE - bound_dist
+else:
+    if args.verbose:
+        print('S/C location NOT found, using static L1 distance.')
+    raw['X'] = l1_dist - bound_dist
+
 # Create seconds-from-start time array:
 tsec = np.array([(t - time[0]).total_seconds() for t in time])
 
 # Interpolate over bad data:
 if args.verbose:
     print('Removing bad data:')
-for v in swmf_vars:
+for v in swmf_vars + ['X']:
     # Find bad values:
-    loc = ~np.isfinite(raw[v])
+    loc = ~np.isfinite(raw[v]) | (raw[v] <= -1E31)
     if args.verbose:
         print(f'\t{v} has {loc.sum()} bad values.')
     if loc.sum() == 0:
@@ -89,20 +102,13 @@ for v in swmf_vars:
     interp = interp1d(tsec[~loc], raw[v][~loc])
     raw[v][loc] = interp(tsec[loc])
 
-# ## TEMP ONLY ## #
-# loc = time < datetime(2024, 5, 10, 15, 0, 0)
-# raw['n'][loc] = medfilt(raw['n'][loc], 31)
-# for x in 'xyz':
-#     raw['u'+x][loc] = medfilt(raw['u'+x][loc], 31)
-# ############### #
-
 # Apply velocity smoothing as required
 if args.verbose:
     print(f'Applying smoothing using a {args.smoothing} window size.')
 velsmooth = medfilt(raw['ux'], args.smoothing)
 
 # Shift time: distance/velocity = timeshift (negative in GSM coords)
-shift = (l1_dist - bound_dist)/velsmooth  # Time shift per point.
+shift = raw['X']/velsmooth  # Time shift per point.
 tshift = np.array([t1 - timedelta(seconds=t2) for t1, t2 in zip(time, shift)])
 
 # Ensure that any points that are "overtaken" (i.e., slow wind overcome by
