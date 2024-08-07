@@ -3,7 +3,17 @@
 Ballistically propagate solar wind parameters from L1 to +32RE upstream for
 use in the Space Weather Modeling Framework.
 
-Given a CDF file that contains the requisite values (see below),
+Given a CDF file that contains the requisite values (see below), the time
+array is delayed by the time each solar wind "parcel" (point in the file)
+would take to travel from the L1 position to the upstream BATS-R-US boundary.
+The travel time is taken using the parcel's current Earthward flow speed
+(Vx), yielding a dynamic time adjustment.
+
+CURRENT ASSUMPTIONS (to change):
+- GSM coordinates for B, V vectors.
+- The position of the S/C is not used, a constant L1 distance is employed.
+- Works only with Wind CDF data files.
+- IMF and solar wind values have same time cadence.
 
 Wind spacecraft CDFs must contain the following variables:
 | Variable Name(s) | Description                                            |
@@ -80,10 +90,10 @@ for v in swmf_vars:
     raw[v][loc] = interp(tsec[loc])
 
 # ## TEMP ONLY ## #
-loc = time < datetime(2024, 5, 10, 15, 0, 0)
-raw['n'][loc] = medfilt(raw['n'][loc], 31)
-for x in 'xyz':
-    raw['u'+x][loc] = medfilt(raw['u'+x][loc], 31)
+# loc = time < datetime(2024, 5, 10, 15, 0, 0)
+# raw['n'][loc] = medfilt(raw['n'][loc], 31)
+# for x in 'xyz':
+#     raw['u'+x][loc] = medfilt(raw['u'+x][loc], 31)
 # ############### #
 
 # Apply velocity smoothing as required
@@ -111,7 +121,7 @@ if args.verbose:
 
 # Create new IMF object and populate with propagated values.
 # Use the information above to throw out overtaken points.
-imfout = ImfInput(args.outfile+'dat', load=False, npoints=len(keep))
+imfout = ImfInput(args.outfile+'.dat', load=False, npoints=len(keep))
 for v in swmf_vars:
     imfout[v] = dmarray(raw[v][keep], {'units': units[v]})
 imfout['time'] = tshift[keep]
@@ -137,3 +147,4 @@ l3 = Line2D([], [], marker='.', mfc='crimson', linewidth=0, mec='crimson',
             markersize=10, label='Removed Points')
 fig.legend(handles=[l1, l2, l3], loc='upper center', ncol=3)
 fig.subplots_adjust(top=.933)
+fig.savefig(args.outfile + '_prop_info.png')
