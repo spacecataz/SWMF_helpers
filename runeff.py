@@ -67,17 +67,15 @@ if eff.size == 0:
     exit()
 
 # Find column number for nCPU info:
-f = os.popen(f"grep 'stride' {args.logfile}")
-lines = f.readlines()
-f.close()
+with os.popen(f"grep 'stride' {args.logfile}") as f:
+    lines = f.readlines()
 parts = lines[-1].split()
 iCol = parts.index('nproc') - len(parts)
 
 # Extract number of CPUs.
-f = os.popen(f"grep 'CON SWMF' {args.logfile}")
-lines = f.readlines()
-f.close()
-parts = lines[-1].replace('#', '').split()
+with os.popen(f"grep 'CON SWMF' {args.logfile}") as f:
+    lines = f.readlines()
+parts = lines[-1].split()
 nCpus = float(parts[iCol])
 
 # Get "previous hour" values.
