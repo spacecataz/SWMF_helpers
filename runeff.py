@@ -31,13 +31,13 @@ args.logfile = args.logfile[0]
 # Extract data points from logfile.
 if args.debug:
     print(f"Reading log file {args.logfile}")
-f = os.popen(f"grep -a '^Progress' {args.logfile}")
-lines = f.readlines()
-f.close()
+with os.popen(f"grep -a '^Progress' {args.logfile}") as f:
+    lines = f.readlines()
 
 nProg = len(lines)
 cpu_t = np.zeros(nProg)
 run_t = np.zeros(nProg)
+dates = []
 
 if nProg == 0 or nProg == 1:
     print("ERROR: No valid lines found.")
@@ -48,6 +48,7 @@ for i, l in enumerate(lines):
     parts = l.replace(':', ' ').split()
     run_t[i] = float(parts[3])
     cpu_t[i] = float(parts[7])
+    dates.append(parts[-1])
 
 # Shift times to include this session ONLY.
 run_t = run_t-run_t[0]
@@ -101,6 +102,8 @@ else:
 print(("Efficiency is %8.2E per CPU." % EffCpu).center(55))
 print((f"This simulation is using {nCpus:.0f} cores.").center(55))
 print(("%i CPUs required for Real Time." % nCpuRT).center(55))
+print((f"Start datetime is {dates[0]}").center(55))
+print((f"Curr. datetime is {dates[-1]}").center(55))
 
 #  print " Average Efficiency=%6.3fX Real Time" % (eff.mean())
 #  print " Maximum Efficiency=%6.3fX Real Time" % (eff.max())
