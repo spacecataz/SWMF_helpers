@@ -68,13 +68,13 @@ if eff.size == 0:
     exit()
 
 # Find column number for nCPU info:
-with os.popen(f"grep 'stride' {args.logfile}") as f:
+with os.popen(f"grep -a 'stride' {args.logfile}") as f:
     lines = f.readlines()
 parts = lines[-1].split()
 iCol = parts.index('nproc') - len(parts)
 
 # Extract number of CPUs.
-with os.popen(f"grep 'CON SWMF' {args.logfile}") as f:
+with os.popen(f"grep -a 'CON SWMF' {args.logfile}") as f:
     lines = f.readlines()
 parts = lines[-1].split()
 nCpus = float(parts[iCol])
