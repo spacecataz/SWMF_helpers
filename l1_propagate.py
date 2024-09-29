@@ -25,7 +25,8 @@ This script works with ACE and WIND data obtained from CDAWeb.
 ACE spacecraft CDFs come in pairs: a SWEPAM file with plasma information,
 spacecraft position, etc. and an MFI file with magnetic field data. If you
 specify either file as the input argument, this script will attempt to find
-the matching file in the same directory.
+the matching file in the same directory. On CDAWeb, select `AC_H0_MFI` and
+`AC_H0_SWE` datasets and obtain values in GSM coordinates.
 ACE spacecraft CDFs must contain the following variables:
 | Variable Name(s)      | Description                                         |
 |-----------------------|-----------------------------------------------------|
@@ -50,6 +51,7 @@ WIND spacecraft CDFs must contain the following variables:
 '''
 
 from glob import glob
+from os import path
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from datetime import datetime, timedelta
 
@@ -154,17 +156,23 @@ def read_ace(fname):
     # Get critical parts of file name:
     stime, etime = fname[-33:-25], fname[-18:-10]
 
+    # Set path of files.
+    dirname = path.dirname(fname)
+    if dirname == '':
+        dirname = './'
+
+    # Find partner files.
     if 'swe' in fname:
         swe = CDF(fname)
         # Build matching name
-        fname2 = glob(fname.split('/')[0] +
-                      f'/ac_h3s_mfi_{stime}??????_{etime}??????.cdf')[0]
+        basefile = f'ac_h3s_mfi_{stime}??????_{etime}??????.cdf'
+        fname2 = glob(path.join(dirname, basefile))[0]
         mag = CDF(fname2)
     elif 'mfi' in fname:
         mag = CDF(fname)
         # Build matching name
-        fname2 = glob(fname.split('/')[0] +
-                      f'/ac_h0s_swe_{stime}??????_{etime}??????.cdf')[0]
+        basefile = f'ac_h0s_swe_{stime}??????_{etime}??????.cdf'
+        fname2 = glob(path.join(dirname, basefile))[0]
         swe = CDF(fname2)
     else:
         raise ValueError('Expected "mfi" or "swe" in CDF file name.')
