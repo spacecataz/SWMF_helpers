@@ -7,10 +7,16 @@ DTW 2009
 '''
 
 import os
+from glob import glob
 
 # First, grab current user:
 user = os.getlogin()
-drive = '/nobackup'
+
+# Get nobackup dir:
+dirs = glob(f'/nobackupp*/{user}')
+if not dirs:
+    raise ValueError("Could not find Nobackupp* associated with this user")
+drive = '/' + dirs[0].split('/')[1]
 
 # Execute lfsquota and obtain relevant data.
 f = os.popen('lfs quota -u {} {}'.format(user, drive))
