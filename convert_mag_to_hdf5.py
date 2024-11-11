@@ -7,7 +7,6 @@ simplified HDF file for use in the Solar Tsunamis project.
 
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import h5py
-from matplotlib.dates import date2num, get_epoch
 from spacepy.pybats.bats import MagGridFile
 
 # Start by configuring the argparser:
@@ -21,6 +20,10 @@ parser.add_argument("--debug", default=False, action='store_true',
                     help="Turn on debugging mode.")
 parser.add_argument("-o", "--outfile", default='maggrid', help="Set output " +
                     "file name without file extension Defaults to 'maggrid'")
+parser.add_argument("--nvar", "-n", choices=['min', 'max', 'med'],
+                    help="Set number of variables to save. 'min' will save " +
+                    "only 1 component (dBd); 'med' saves all 3 components, " +
+                    "'max' saves all componets broken by contribution.")
 args = parser.parse_args()
 
 if args.verbose:
@@ -31,6 +34,17 @@ if 'mags' not in globals():
 # Collect info about file:
 ntime, nlat, nlon = mags.attrs['nframe'], mags['Lat'].size, mags['Lon'].size
 
+# Set variables to use:
+match args.nvar:
+    case 'min':
+        savevars = ['dBd']
+    case 'med':
+        savevars = ['dBn', 'dBe', 'dBd']
+    case 'max':
+        savevars = ['dBn', 'dBe', 'dBd', 'dBnMhd', 'dBeMhd', 'dBdMhd',
+                    'dBnFac', 'dBeFac', 'dBdFac', 'dBnHal', 'dBeHal',
+                    'dBdHal', 'dBnPed', 'dBePed', 'dBdPed']
+
 # Create HDF5 file:
 out = h5py.File(args.outfile + '.h5', 'w')
 
@@ -40,19 +54,23 @@ for v, size in zip(['lon', 'lat'], [nlon, nlat]):
     set[:] = mags[v.capitalize()]
 
 # Create datasets for perturbation and populate:
-for v in ['dBn', 'dBe', 'dBd']:
+for v in savevars:
     out.create_dataset(v, [nlon, nlat, ntime])
+
+# Generate time as floating point:
+starttime = mags.attrs['times'][0]
+time = [(t - starttime).total_seconds() for t in mags.attrs['times']]
 
 # Create time array:
 set = out.create_dataset('time', [ntime])
-set[:] = date2num(mags.attrs['times'])
+set[:] = time
 set = out.create_dataset('ref_epoch', shape=1, dtype=h5py.string_dtype())
-set = get_epoch()
+set = starttime.isoformat()
 
 # Populate and close:
 for i in range(ntime):
     mags.switch_frame(i)
-    for v in ['dBn', 'dBe', 'dBd']:
+    for v in savevars:
         out[v][:, :, i] = mags[v]
 
 out.close()
