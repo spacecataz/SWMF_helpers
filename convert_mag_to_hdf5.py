@@ -45,7 +45,14 @@ match args.nvar:
                     'dBnFac', 'dBeFac', 'dBdFac', 'dBnHal', 'dBeHal',
                     'dBdHal', 'dBnPed', 'dBePed', 'dBdPed']
 
+if args.debug:
+    print('Saving the following variables to file:')
+    for v in savevars:
+        print(f'\t{v}')
+
 # Create HDF5 file:
+if args.debug:
+    print(f'Creating HDF5 file {args.outfile + ".h5"}')
 out = h5py.File(args.outfile + '.h5', 'w')
 
 # Create datasets for position:
