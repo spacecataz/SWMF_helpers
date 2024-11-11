@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 '''
 Convert a magnetomter `.outs` file group (note the "s" in "outs"!) into a
@@ -20,7 +20,8 @@ parser.add_argument("--debug", default=False, action='store_true',
                     help="Turn on debugging mode.")
 parser.add_argument("-o", "--outfile", default='maggrid', help="Set output " +
                     "file name without file extension Defaults to 'maggrid'")
-parser.add_argument("--nvar", "-n", choices=['min', 'max', 'med'],
+parser.add_argument("--nvar", "-n",
+                    choices=['min', 'max', 'med'], default='min',
                     help="Set number of variables to save. 'min' will save " +
                     "only 1 component (dBd); 'med' saves all 3 components, " +
                     "'max' saves all componets broken by contribution.")
