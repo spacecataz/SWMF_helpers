@@ -89,7 +89,7 @@ outdir = 'iono_figs/'
 labs = {'jphi': r'$J_{\phi}$', 'phi': None, 'sigmah': None, 'sigmap': None,
         'jr': None}
 mz = {'jphi': args.maxj, 'sigmah': args.maxcond, 'phi': args.maxpot,
-      'jr': args.maxj, 'sigmap': args.maxcond}
+      'jr': args.maxfac, 'sigmap': args.maxcond}
 
 if not os.path.exists(outdir):
     os.mkdir(outdir)
