@@ -45,6 +45,9 @@ parser.add_argument("-l", "--labels", nargs='+', help='Set legend labels for eac
                     'model included in the comparison')
 parser.add_argument("-o", "--outdir", default='mag_compares', help="Set " +
                     "output directory for plots.  Defaults to ./mag_compares")
+parser.add_argument("-z", "--horizontal", default=True, help="Instead of dBdown, " +
+                    "plot the horizontal component of dB. Requires calculation of " +
+                    "the H component in the SuperMAG reader.")
 parser.add_argument("--debug", default=False, action='store_true',
                     help="Turn on debugging mode.")
 args = parser.parse_args()
@@ -69,7 +72,7 @@ style()
 if args.debug: print('\tLoading magnetometer station info...')
 mag_info = read_statinfo()
 
-def comp_mag(name, obs, mod, labels=None, interactive=False):
+def comp_mag(name, obs, mod, labels=None, h=False, interactive=False):
     '''
     Given a magnetometer with station name "name", compare the
     data and model together and save the plot.
@@ -88,6 +91,10 @@ def comp_mag(name, obs, mod, labels=None, interactive=False):
 
     labels : list
         A list of labels for the plot legend.
+
+    h: bool
+        Whether or not to plot the horizontal component instead of the 
+        vertical component.
     '''
 
     # Get number of models to include in this comparison:
@@ -116,8 +123,15 @@ def comp_mag(name, obs, mod, labels=None, interactive=False):
     fig = plt.figure(figsize=(10, 10))
     a1, a2, a3 = fig.subplots(3, 1)
 
+    if not h:
+        comp1 = 'ned' # model
+        comp2 = 'xyz' # obs
+    else:
+        comp1 = 'neh'
+        comp2 = 'xyH'
+
     # Loop over field component; plot data v. model for each
-    for x1, x2, ax in zip('ned', 'xyz', (a1, a2, a3)):
+    for x1, x2, ax in zip(comp1, comp2, (a1, a2, a3)):
         # Plot model & data:
         if name in obs:
             ax.plot(obs['time'], obs[name]['b'+x2], 'k',
@@ -127,6 +141,10 @@ def comp_mag(name, obs, mod, labels=None, interactive=False):
 
         for m,l in zip(mod, labels):
             if name in m:
+                if h:
+                    # Calculate dBh for the model:
+                    m.calc_h()
+                
                 ax.plot(m[name]['time'], m[name]['dB'+x1], label=l, alpha=alpha)
                 ax.set_ylabel(f'$\\Delta B_{x2}$ ($nT$)')
 
@@ -155,6 +173,7 @@ def comp_mag(name, obs, mod, labels=None, interactive=False):
         plt.show()
 
 
+        
 # Create output directory
 if not os.path.exists(args.outdir):
     os.mkdir(args.outdir)
@@ -162,6 +181,15 @@ if not os.path.exists(args.outdir):
 # Open our data:
 if args.debug: print('\tReading observational data file...')
 obs = SuperMag(args.obs)
+
+# Check that the observations have the H component:
+if args.horizontal:
+    if 'bH' not in obs['EYR'].keys():
+        print('No bH present in the observations.')
+        print('Be sure to turn on calc_H in __init__.py')
+        print('in the supermag package (line 336).')
+        sys.exit()
+
 if args.debug: print('\tReading model data file(s)...')
 mod = [bats.MagFile(x) for x in args.mod]
 
@@ -179,7 +207,8 @@ nStats = len(namemag)
 for i, station in enumerate(maglist):
     print(f'Working on station {i} of {nStats}: {station}')
     if station in obs:
-        comp_mag(station, obs, mod, labels=args.labels, interactive=args.debug)
+        comp_mag(station, obs, mod, labels=args.labels,
+                 h=args.horizontal, interactive=args.debug)
         # If in debug mode, only show 1 plot.
         if args.debug:
             break
