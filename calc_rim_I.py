@@ -118,13 +118,21 @@ def integrate_more(ie):
         '''For integrating a value in IE over the whole hemisphere.'''
         return values*np.sin(colat)*dTheta*dPhi
 
+    ieshape = ie['n_phi'].shape
+
     for hemi in 'ns':
         colat = ie[hemi+'_theta']*np.pi/180.  # for integration later
 
+        has_jphi = 'n_jx' in ie
+        has_pos = 'n_x' in ie
+
+        currents = ['jr'] + ['jphi'] * has_jphi
+
         # Split into dayside and nightside:
-        day = ie[hemi+'_x'] > 0.
-        night = ie[hemi+'_x'] < 0.
-        for current in ['jr', 'jphi']:
+        day = ie[hemi+'_x'] > 0. if has_pos else np.zeros(ieshape, dtype=bool)
+        night = ie[hemi+'_x'] < 0 if has_pos else np.zeros(ieshape, dtype=bool)
+
+        for current in currents:
             day_j = np.copy(ie[hemi+'_'+current])
             night_j = np.copy(ie[hemi+'_'+current])
             day_j[night] = 0.
@@ -134,7 +142,7 @@ def integrate_more(ie):
             loc_up = ie[hemi+'_'+current] > 0
             loc_do = ie[hemi+'_'+current] < 0
 
-            # Integrate day/night currents:
+            # Integrate day/night currents ONLY if position available.
             for val, name in zip([day_j, night_j], ['day', 'night']):
                 integrand = make_integrand(val, colat)
                 key = hemi+'_'+name+'_'+current  # for convenience
@@ -147,14 +155,20 @@ def integrate_more(ie):
                 ie[key] = (np.abs(ie[key+'up']) + np.abs(ie[key+'down']))/2
 
         # Integrate total jphi
-        loc_up = ie[hemi+'_jphi'] > 0
-        loc_do = ie[hemi+'_jphi'] < 0
+        if has_jphi:
+            loc_up = ie[hemi+'_jphi'] > 0
+            loc_do = ie[hemi+'_jphi'] < 0
 
-        integrand = make_integrand(ie[hemi+'_jphi'], colat)
-        ie[hemi+'_up_jphi'] = units*R**2 * np.sum(integrand[loc_up])
-        ie[hemi+'_down_jphi'] = units*R**2 * np.sum(integrand[loc_do])
+            integrand = make_integrand(ie[hemi+'_jphi'], colat)
+            ie[hemi+'_up_jphi'] = units*R**2 * np.sum(integrand[loc_up])
+            ie[hemi+'_down_jphi'] = units*R**2 * np.sum(integrand[loc_do])
 
-        ie[hemi+'_J'] = (ie[hemi+'_up_jphi'] + np.abs(ie[hemi+'_down_jphi']))/2
+            ie[hemi+'_J'] = (ie[hemi+'_up_jphi']
+                             + np.abs(ie[hemi+'_down_jphi']))/2
+        else:
+            ie[hemi+'_jphi'] = np.zeros(ieshape)
+            ie[hemi+'_day_jphi'], ie[hemi+'_night_jphi'] = 0, 0
+            ie[hemi+'_J'] = 0.0
 
     return ie
 
@@ -166,9 +180,6 @@ for i, f in enumerate(file_list):
     ie.calc_I()   # integrate current.
     if 'n_jx' in ie:
         ie.calc_j()   # get azimuthal current.
-    else:
-        ie['n_jphi'], ie['s_jphi'] = 0.0, 0.0
-        ie['n_day_jphi'], ie['s_day_jphi'] = 0.0, 0.0
 
     ie = integrate_more(ie)  # integrate horizontal current and day/night FACs
 
