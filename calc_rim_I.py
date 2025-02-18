@@ -2,7 +2,7 @@
 
 '''
 From a series of Ridley_serial 2D output files, calculate the integrated
-radial current density and max/min azimuthal current density for 
+radial current density and max/min azimuthal current density for
 both hemispheres and save the resulting timeseries data into a new file.
 
 The script will look for files named "it??????_??????_???.idl" in three
@@ -13,59 +13,60 @@ separate places in the following order:
 Once files are found, only those will be used in the calculation.  This means
 that you can run this script from the top-level of an SWMF run directory.
 
-The output file can be of two formats: simple ASCII or a Python Pickle.  
+The output file can be of two formats: simple ASCII or a Python Pickle.
 The pickle will contain a dictionary of numpy arrays: an array of datetimes,
 and then numpy arrays of total FACs, upward FACs, downward FACs,
-maximum azimuthal current, minimum azimuthal current, total azimuthal 
-current, dayside FACs, nightside FACs, dayside azimuthal current, and 
-nightside azimuthal current, all in the northern 
+maximum azimuthal current, minimum azimuthal current, total azimuthal
+current, dayside FACs, nightside FACs, dayside azimuthal current, and
+nightside azimuthal current, all in the northern
 hemisphere; these values are then repeated for the southern
 hemisphere.  The ASCII files have a self-descriptive header.
 
 The variables are stored in the pickle-formatted files with these keys:
 time, nUp, nDown, nAll, nPhiMax, nPhiMin, sUp, sDown, sAll, sPhiMax, sPhiMin,
 n_J, s_J, ndayI, nnightI, sdayI, snightI, ndayJ, nnightJ, sdayJ, snightJ
-...where "n" or "s" represents northern or southern hemisphere and "up", 
-"down", and "all" is the FAC direction ("all" is net). "day" and "night" 
+...where "n" or "s" represents northern or southern hemisphere and "up",
+"down", and "all" is the FAC direction ("all" is net). "day" and "night"
 indicate current on either the positive or negative X side of the hemisphere,
-respectively. "I" is integrated field-aligned current ("jr") and "J" is 
+respectively. "I" is integrated field-aligned current ("jr") and "J" is
 integrated azimuthal current ("jphi").
 
-Output units are in Mega-Amps (MA). (...at least for iFACs. Need to verify for 
+Output units are in Mega-Amps (MA). (...at least for iFACs. Need to verify for
 azimuthal current.)
-
-TO DO: try-except block that will handle files missing key variables
 '''
 
-# Start by setting up and parsing arguments.
+# Load relevant modules
+from glob import glob
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
+
+import numpy as np
+
+from spacepy.pybats.rim import Iono
+
+# Start by setting up and parsing arguments.
 parser = ArgumentParser(description=__doc__,
                         formatter_class=RawDescriptionHelpFormatter)
-parser.add_argument('--outfile', '-o', default='./current.txt', help=
-                    'Set the name of the output file.  Allowable suffixes '+
-                    'are  "*.txt" or "*.pkl" for ascii or Python pickle, ' +
-                    'respectively.  Default is "./current.txt"')
-parser.add_argument('--debug', '-d', default=False, action='store_true', help=
-                    'Turn on verbose debug information.')
+parser.add_argument('--outfile', '-o', default='./current.txt',
+                    help='Set the name of the output file.  Allowable ' +
+                    'suffixes are  "*.txt" or "*.pkl" for ascii or Python ' +
+                    'pickle, respectively.  Default is "./current.txt"')
+parser.add_argument('--debug', '-d', default=False, action='store_true',
+                    help='Turn on verbose debug information.')
 
 # Handle arguments:
 args = parser.parse_args()
 
-# Load relevant modules
-from glob import glob
-import numpy as np
-from spacepy.pybats.rim import Iono
-
 # Check output file name:
-if args.outfile.split('.')[-1]!='pkl' and args.outfile.split('.')[-1]!='txt':
+extension = args.outfile.split('.')[-1]
+if extension != 'pkl' and extension != 'txt':
     raise ValueError('Unrecognized file format, use .pkl or .txt only.')
 
 # Get list of files:
 file_list = glob('./it??????_??????_???.idl*')
 if not file_list:
-    file_list=glob('./IE/it??????_??????_???.idl*')
+    file_list = glob('./IE/it??????_??????_???.idl*')
 if not file_list:
-    file_list=glob('./IE/ionosphere/it??????_??????_???.idl*')
+    file_list = glob('./IE/ionosphere/it??????_??????_???.idl*')
 
 # Sort the files (thanks, OSX):
 file_list.sort()
@@ -96,7 +97,7 @@ sdayJ, snightJ = np.zeros(nFiles), np.zeros(nFiles)
 # Create function that integrates horizontal current, day/night FACs:
 def integrate_more(ie):
     '''
-    Takes a spacepy.pybats.rim Iono object that has already 
+    Takes a spacepy.pybats.rim Iono object that has already
     used the method ie.calc_j()
 
     Returns the value of total integrated horizontal current,
@@ -109,20 +110,20 @@ def integrate_more(ie):
 
     # Calculate some physically meaningful values/units
     units = 1E-6*1E-6  # micro amps to amps, amps to MegaAmps
-    R = (6371.0+110.0)*1000.0 # Radius of Earth + iono altitude
+    R = (6371.0+110.0)*1000.0  # Radius of Earth + iono altitude
     dTheta = np.pi*ie.dlat/180.
-    dPhi   = np.pi*ie.dlon/180.
+    dPhi = np.pi*ie.dlon/180.
 
     def make_integrand(values, colat):
         '''For integrating a value in IE over the whole hemisphere.'''
         return values*np.sin(colat)*dTheta*dPhi
 
     for hemi in 'ns':
-        colat = ie[hemi+'_theta']*np.pi/180. # for integration later
-        
+        colat = ie[hemi+'_theta']*np.pi/180.  # for integration later
+
         # Split into dayside and nightside:
-        day = ie[hemi+'_x']>0.
-        night = ie[hemi+'_x']<0.
+        day = ie[hemi+'_x'] > 0.
+        night = ie[hemi+'_x'] < 0.
         for current in ['jr', 'jphi']:
             day_j = np.copy(ie[hemi+'_'+current])
             night_j = np.copy(ie[hemi+'_'+current])
@@ -130,13 +131,13 @@ def integrate_more(ie):
             night_j[day] = 0.
 
             # Get locations of "up" and "down" (really, positive and negative):
-            loc_up = ie[hemi+'_'+current]>0
-            loc_do = ie[hemi+'_'+current]<0
+            loc_up = ie[hemi+'_'+current] > 0
+            loc_do = ie[hemi+'_'+current] < 0
 
             # Integrate day/night currents:
             for val, name in zip([day_j, night_j], ['day', 'night']):
                 integrand = make_integrand(val, colat)
-                key = hemi+'_'+name+'_'+current # for convenience
+                key = hemi+'_'+name+'_'+current  # for convenience
 
                 # Integrate "up" and "down" day or night current:
                 ie[key+'up'] = units*R**2 * np.sum(integrand[loc_up])
@@ -146,28 +147,31 @@ def integrate_more(ie):
                 ie[key] = (np.abs(ie[key+'up']) + np.abs(ie[key+'down']))/2
 
         # Integrate total jphi
-        loc_up = ie[hemi+'_jphi']>0
-        loc_do = ie[hemi+'_jphi']<0
-        
+        loc_up = ie[hemi+'_jphi'] > 0
+        loc_do = ie[hemi+'_jphi'] < 0
+
         integrand = make_integrand(ie[hemi+'_jphi'], colat)
         ie[hemi+'_up_jphi'] = units*R**2 * np.sum(integrand[loc_up])
         ie[hemi+'_down_jphi'] = units*R**2 * np.sum(integrand[loc_do])
-        
+
         ie[hemi+'_J'] = (ie[hemi+'_up_jphi'] + np.abs(ie[hemi+'_down_jphi']))/2
-            
 
     return ie
-  
+
 
 # Load up variables by looping over all files:
 for i, f in enumerate(file_list):
-    ie = Iono(f)  #open file.
-    
-    ie.calc_I()   #integrate current.
-    ie.calc_j()   #get azimuthal current.
+    ie = Iono(f)  # open file.
 
-    ie = integrate_more(ie) #integrate horizontal current and day/night FACs
-    
+    ie.calc_I()   # integrate current.
+    if 'n_jx' in ie:
+        ie.calc_j()   # get azimuthal current.
+    else:
+        ie['n_jphi'], ie['s_jphi'] = 0.0, 0.0
+        ie['n_day_jphi'], ie['s_day_jphi'] = 0.0, 0.0
+
+    ie = integrate_more(ie)  # integrate horizontal current and day/night FACs
+
     # Store time and north/south hemi integrated currents:
     time[i] = ie.attrs['time']
     nUp[i], nDown[i], nAll[i] = ie['n_Iup'], ie['n_Idown'], ie['n_I']
@@ -177,50 +181,53 @@ for i, f in enumerate(file_list):
     nPhiMax[i], nPhiMin[i] = ie['n_jphi'].max(), ie['n_jphi'].min()
     sPhiMax[i], sPhiMin[i] = ie['s_jphi'].max(), ie['s_jphi'].min()
 
-    # Store horizontal currents: 
+    # Store horizontal currents:
     n_J[i], s_J[i] = ie['n_J'], ie['s_J']
 
-    # Store day/night FACs: 
+    # Store day/night FACs:
     ndayI[i], nnightI[i] = ie['n_day_jr'], ie['n_night_jr']
     sdayI[i], snightI[i] = ie['s_day_jr'], ie['s_night_jr']
 
-    # Store day/night Jphi: 
+    # Store day/night Jphi:
     ndayJ[i], nnightJ[i] = ie['n_day_jphi'], ie['n_night_jphi']
     sdayJ[i], snightJ[i] = ie['s_day_jphi'], ie['s_night_jphi']
-    
-    
+
+
 # Now, save as a file:
 if args.outfile.split('.')[-1] == 'pkl':
     import pickle
     f = open(args.outfile, 'wb')
-    data = {'time':time,
-            'nUp':nUp,'nDown':nDown,'nAll':nAll,'nPhiMax':nPhiMax,'nPhiMin':nPhiMin,
-            'sUp':sUp,'sDown':sDown,'sAll':sAll,'sPhiMax':sPhiMax,'sPhiMin':sPhiMin,
-            'n_J':n_J,'s_J':s_J, 'ndayI':ndayI, 'nnightI':nnightI,
-            'sdayI':sdayI, 'snightI':snightI, 'ndayJ':ndayJ, 'nnightJ':nnightJ,
-            'sdayJ':sdayJ, 'snightJ':snightJ}
+    data = {'time': time,
+            'nUp': nUp, 'nDown': nDown, 'nAll': nAll,
+            'sUp': sUp, 'sDown': sDown, 'sAll': sAll,
+            'nPhiMax': nPhiMax, 'nPhiMin': nPhiMin,
+            'sPhiMax': sPhiMax, 'sPhiMin': sPhiMin,
+            'n_J': n_J, 's_J': s_J, 'ndayI': ndayI, 'nnightI': nnightI,
+            'sdayI': sdayI, 'snightI': snightI, 'ndayJ': ndayJ,
+            'nnightJ': nnightJ, 'sdayJ': sdayJ, 'snightJ': snightJ}
     pickle.dump(data, f)
     f.close()
 else:
     f = open(args.outfile, 'w')
     # Header:
     f.write('Time\tI_Up_North(MA)\tI_Down_North(MA)\tI_Total_North(MA)')
-    f.write(    '\tJphi_Max_North(A/m)\tJphi_Min_North(A/m)')
-    f.write(    '\tI_Up_South(MA)\tI_Down_South(MA)\tI_Total_South(MA)')
-    f.write(    '\tJphi_Max_South(A/m)\tJphi_Min_South(A/m)')
-    f.write(    '\tTotal_J_North(A/m)\tTotal_J_South(A/m)')
-    f.write(    '\tI_Day_North(A/m)\tI_Night_North(A/m)')
-    f.write(    '\tI_Day_South(A/m)\tI_Night_South(A/m)')
-    f.write(    '\tJ_Day_North(A/m)\tJ_Night_North(A/m)')
-    f.write(    '\tJ_Day_South(A/m)\tJ_Night_South(A/m)\n')
+    f.write('\tJphi_Max_North(A/m)\tJphi_Min_North(A/m)')
+    f.write('\tI_Up_South(MA)\tI_Down_South(MA)\tI_Total_South(MA)')
+    f.write('\tJphi_Max_South(A/m)\tJphi_Min_South(A/m)')
+    f.write('\tTotal_J_North(A/m)\tTotal_J_South(A/m)')
+    f.write('\tI_Day_North(A/m)\tI_Night_North(A/m)')
+    f.write('\tI_Day_South(A/m)\tI_Night_South(A/m)')
+    f.write('\tJ_Day_North(A/m)\tJ_Night_North(A/m)')
+    f.write('\tJ_Day_South(A/m)\tJ_Night_South(A/m)\n')
 
     for i, t in enumerate(time):
         tnow = t.isoformat()
-        f.write('{}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t'.format(
-            tnow, nUp[i], nDown[i], nAll[i], nPhiMax[i], nPhiMin[i]))
+        f.write('{}\t'.format(tnow))
+        f.write('{:12.5f}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t'.format(
+            nUp[i], nDown[i], nAll[i], nPhiMax[i], nPhiMin[i]))
         f.write('{:12.5f}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t{:12.5f}\t'.format(
             sUp[i], sDown[i], sAll[i], sPhiMax[i], sPhiMin[i]))
-        f.write('{:12.5f}\t{:12.5f}\t'.format(n_J[i], s_J[i])) 
+        f.write('{:12.5f}\t{:12.5f}\t'.format(n_J[i], s_J[i]))
         f.write('{:12.5f}\t{:12.5f}\t'.format(ndayI[i], nnightI[i]))
         f.write('{:12.5f}\t{:12.5f}\n'.format(sdayI[i], snightI[i]))
         f.write('{:12.5f}\t{:12.5f}\t'.format(ndayJ[i], nnightJ[i]))
