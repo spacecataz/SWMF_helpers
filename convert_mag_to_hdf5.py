@@ -30,7 +30,7 @@ parser.add_argument("-p", "--prefix", default='maggrid', help="Set output " +
 parser.add_argument("-c", "--chunk", default=60, help="Set the size of file" +
                     " time chunks, in minutes. 60 means 1 file will contain " +
                     "60 minutes of data. If negative, results are not " +
-                    "chunked.", type=int)
+                    "chunked.", type=float)
 parser.add_argument("--nvar", "-n",
                     choices=['min', 'max', 'med'], default='min',
                     help="Set number of variables to save. 'min' will save " +
@@ -57,8 +57,14 @@ if args.debug:
     print('DEBUG: Shortening file to 10 time entries.')
     ntime = 10
 
-# Determine the number of files required to write based on chunk size:
-dtime = (mags.attrs['times'][1] - mags.attrs['times'][0]).total_seconds()
+# Determine the number of files required to write based on chunk size.
+# On high-density output, it may be necessary to skip a file or so.
+i = 0
+while mags.attrs['times'][i] == mags.attrs['times'][i+1]:
+    i += 1
+
+# Get total seconds between records:
+dtime = (mags.attrs['times'][i+1] - mags.attrs['times'][i]).total_seconds()
 
 # Get number of entries per chunk. Only 1 file if args.chunk is negative.
 strsize = 'ALL' if args.chunk < 0 else args.chunk
