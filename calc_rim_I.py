@@ -240,7 +240,7 @@ else:
             sUp[i], sDown[i], sAll[i], sPhiMax[i], sPhiMin[i]))
         f.write('{:12.5f}\t{:12.5f}\t'.format(n_J[i], s_J[i]))
         f.write('{:12.5f}\t{:12.5f}\t'.format(ndayI[i], nnightI[i]))
-        f.write('{:12.5f}\t{:12.5f}\n'.format(sdayI[i], snightI[i]))
+        f.write('{:12.5f}\t{:12.5f}\t'.format(sdayI[i], snightI[i]))
         f.write('{:12.5f}\t{:12.5f}\t'.format(ndayJ[i], nnightJ[i]))
         f.write('{:12.5f}\t{:12.5f}\n'.format(sdayJ[i], snightJ[i]))
     f.close()
