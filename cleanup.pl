@@ -3,7 +3,7 @@
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #This script "cleans up" an swmf run directory by removing output files,
-#log files and other unnecessary items.  When called, the script asks 
+#log files and other unnecessary items.  When called, the script asks
 #the user what files should be removed.
 #
 #Options:
@@ -56,7 +56,7 @@ my @restlist;
 #Loop through all job.* files and examine them.
 foreach(<job.*>){
     open(FH, '<', $_) or die "Couldn't read job file $_: $!\n";
-    
+
     #Logfiles are named in the job script; pbs logfiles are named after
     #the PBS job name.  Let's extract both from every file.
     while(<FH>){
@@ -67,7 +67,7 @@ foreach(<job.*>){
 	}
 	if(/mpirun.+(\>|\>\&)\s*(\S+)/){
 	    #Check for syntax that appends the date to the log file.
-	    #If it's there, we have to rely on wild cards to delete 
+	    #If it's there, we have to rely on wild cards to delete
 	    #the correct files.
 	    if($2 =~ /\`/){
 		push @loglist, 'log.*';
@@ -88,6 +88,7 @@ while(<*>){
     if($_ eq 'PS'){push @plotlist, 'PS/Output/*'}
     if($_ eq 'UA'){push @plotlist, 'UA/data/*'}
     if(/^RESTART_/){push @restlist, $_}
+    if(/^SWMF_RESTART./){push @restlist, $_}
 }
 
 
@@ -147,11 +148,11 @@ sub print_help
 
     print<<EOF;
     This script quickly cleans up the current run directory
-    so that another simulation can be run with out output and 
-    restart files from the previous simulation getting in the 
-    way.  It removes restarts, system logs, SWMF logs, and 
+    so that another simulation can be run with out output and
+    restart files from the previous simulation getting in the
+    way.  It removes restarts, system logs, SWMF logs, and
     output files from the folders in the PWD.  It will ask for
-    permission to delete each group so that you can remove a 
+    permission to delete each group so that you can remove a
     subset of the list to be deleted rather than blindly wiping
     the files.
 
