@@ -81,6 +81,7 @@ foreach(<job.*>){
 
 #Examine pwd, figure out what components are installed.
 #Add any restart directories to the list.
+#Remove temporary jobscripts.
 while(<*>){
     if($_ eq 'GM'){push @plotlist, 'GM/IO2/*'}
     if($_ eq 'IM'){push @plotlist, 'IM/plots/*'}
@@ -89,6 +90,8 @@ while(<*>){
     if($_ eq 'UA'){push @plotlist, 'UA/data/*'}
     if(/^RESTART_/){push @restlist, $_}
     if(/^SWMF_RESTART./){push @restlist, $_}
+    if(/.Bro$/ || /.Bro_ele$/ || /.Cas_ait$/ || /.Has$/ || /.Ivy$/
+        || /.Rom_ait$/ || /.San$/ || /.Sky_ele$/){push @pbslist, $_}
 }
 
 
@@ -99,7 +102,7 @@ while(<*>){
 #Check the results of the analysis:
 print "\nOutput directories to clean:\n";
 print "$_; " foreach(@plotlist);
-print "\nPBS Logfiles to remove:\n";
+print "\nPBS Logfiles and Jobscripts to remove:\n";
 print "$_; " foreach(@pbslist);
 print "\nLogfiles to be removed:\n";
 print "$_; " foreach(@loglist);
