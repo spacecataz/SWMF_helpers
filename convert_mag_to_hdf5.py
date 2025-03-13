@@ -60,11 +60,11 @@ if args.debug:
 # Determine the number of files required to write based on chunk size.
 # On high-density output, it may be necessary to skip a file or so.
 i = 0
-while mags.attrs['times'][i] == mags.attrs['times'][i+1]:
+while mags.attrs['runtimes'][i] == mags.attrs['runtimes'][i+1]:
     i += 1
 
 # Get total seconds between records:
-dtime = (mags.attrs['times'][i+1] - mags.attrs['times'][i]).total_seconds()
+dtime = mags.attrs['runtimes'][i+1] - mags.attrs['runtimes'][i]
 
 # Get number of entries per chunk. Only 1 file if args.chunk is negative.
 strsize = 'ALL' if args.chunk < 0 else args.chunk
@@ -97,7 +97,7 @@ if args.verbose:
 
 # Generate time as floating point:
 starttime = mags.attrs['times'][0]
-time = [(t - starttime).total_seconds() for t in mags.attrs['times']]
+time = mags.attrs['runtimes']
 
 # Loop through files, grabbing values we want.
 for ifile in range(nfiles):
