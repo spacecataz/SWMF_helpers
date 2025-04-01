@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 '''
-Ballistically propagate solar wind parameters from L1 to +32RE upstream for
-use in the Space Weather Modeling Framework.
+Propagate solar wind parameters from L1 to +32RE upstream for
+use in the Space Weather Modeling Framework. Either a ballistic method or
+constant time shift can be used. See the `tshift` argument for selecting
+the propagation method.
 
 Given a CDF file that contains the requisite values (see below), the time
 array is delayed by the time each solar wind "parcel" (point in the file)
@@ -52,6 +54,7 @@ WIND spacecraft CDFs must contain the following variables:
 
 from glob import glob
 from os import path
+import re
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from datetime import datetime, timedelta
 
@@ -71,7 +74,7 @@ style()
 parser = ArgumentParser(description=__doc__,
                         formatter_class=RawDescriptionHelpFormatter)
 parser.add_argument("file", type=str,
-                    help='A Wind dataset in CDF format that contains the ' +
+                    help='An L1 dataset in CDF format that contains the ' +
                     'required variables.')
 parser.add_argument("-v", "--verbose", default=False, action='store_true',
                     help="Turn on verbose output mode.")
@@ -83,6 +86,11 @@ parser.add_argument("-s", "--smoothing", default=1, type=int,
                     help="Velocity may be smoothed via median filtering. " +
                     "Set this argument to an integer window size to apply " +
                     "smoothing. Default is 1 point, or no smoothing.")
+parser.add_argument("--tshift", "-t", type=float, default=-1.0,
+                    help="Use a constant time shift, given in minutes, " +
+                    "instead of ballistic propagation. Default is -1.0, " +
+                    "which uses default ballistic propagation. A value of " +
+                    "0 sets no propagation.")
 args = parser.parse_args()
 
 # Declare important constants
@@ -154,7 +162,11 @@ def read_ace(fname):
     '''
 
     # Get critical parts of file name:
-    stime, etime = fname[-33:-25], fname[-18:-10]
+    result = re.search('ac\_h\ds\_mfi\_(\d+)\_(\d+)(\_cdaweb)?\.cdf',
+                       args.file)
+    stime, etime, cdatag = result.groups()
+    if args.verbose:
+        print(f"Found start/end times in file name of {stime}, {etime}")
 
     # Set path of files.
     dirname = path.dirname(fname)
@@ -165,13 +177,13 @@ def read_ace(fname):
     if 'swe' in fname:
         swe = CDF(fname)
         # Build matching name
-        basefile = f'ac_h3s_mfi_{stime}??????_{etime}??????.cdf'
+        basefile = f'ac_h?s_mfi_{stime}_{etime}{cdatag}.cdf'
         fname2 = glob(path.join(dirname, basefile))[0]
         mag = CDF(fname2)
     elif 'mfi' in fname:
         mag = CDF(fname)
         # Build matching name
-        basefile = f'ac_h0s_swe_{stime}??????_{etime}??????.cdf'
+        basefile = f'ac_h?s_swe_{stime}_{etime}{cdatag}.cdf'
         fname2 = glob(path.join(dirname, basefile))[0]
         swe = CDF(fname2)
     else:
@@ -210,7 +222,15 @@ else:
     raw['X'] = l1_dist - bound_dist
 
 # Create seconds-from-start time array:
-tsec = np.array([(t - raw['time'][0]).total_seconds() for t in raw['time']])
+if args.tshift >= 0:
+    if args.verbose:
+        print(f'Using a STATIC timeshift of {args.tshift} minutes.')
+        tsec = np.zeros(raw['time'].size) + args.tshift * 60.0
+else:
+    if args.verbose:
+        print('Using BALLISTIC propagation.')
+    tsec = np.array([(t - raw['time'][0]).total_seconds()
+                     for t in raw['time']])
 
 # Interpolate over bad data:
 if args.verbose:
