@@ -278,7 +278,10 @@ imfout['time'] = tshift[keep]
 imfout.attrs['header'].append(f'Source data: {args.file}')
 imfout.attrs['header'].append('Ballistically propagted from L1 to upstream ' +
                               'BATS-R-US boundary')
+imfout.attrs['coor'] = 'GSM'
+imfout.attrs['satxyz'] = [raw['X']/RE, 0, 0]
 imfout.attrs['header'].append(f'File created on {datetime.now()}')
+
 imfout.write()
 
 # Plot!
