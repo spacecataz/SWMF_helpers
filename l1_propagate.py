@@ -222,15 +222,7 @@ else:
     raw['X'] = l1_dist - bound_dist
 
 # Create seconds-from-start time array:
-if args.tshift >= 0:
-    if args.verbose:
-        print(f'Using a STATIC timeshift of {args.tshift} minutes.')
-        tsec = np.zeros(raw['time'].size) + args.tshift * 60.0
-else:
-    if args.verbose:
-        print('Using BALLISTIC propagation.')
-    tsec = np.array([(t - raw['time'][0]).total_seconds()
-                     for t in raw['time']])
+tsec = np.array([(t - raw['time'][0]).total_seconds() for t in raw['time']])
 
 # Interpolate over bad data:
 if args.verbose:
@@ -251,7 +243,15 @@ if args.verbose:
 velsmooth = medfilt(raw['ux'], args.smoothing)
 
 # Shift time: distance/velocity = timeshift (negative in GSM coords)
-shift = raw['X']/velsmooth  # Time shift per point.
+if args.tshift >= 0:
+    if args.verbose:
+        print(f'Using a STATIC timeshift of {args.tshift} minutes.')
+        shift = np.zeros(raw['time'].size) + args.tshift * 60.0
+else:
+    if args.verbose:
+        print('Using BALLISTIC propagation.')
+    shift = raw['X']/velsmooth  # Time shift per point.
+# Apply shift to times.
 tshift = np.array([t1 - timedelta(seconds=t2) for t1, t2 in
                    zip(raw['time'], shift)])
 
