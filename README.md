@@ -1,16 +1,5 @@
 # SWMF_helpers
-A set of scripts and tools for creating, executing, and analyzing SWMF simulations.
-
-These scripts are useful bits of code for performing common tasks with input
-and output of the Space Weather Modeling Framework.
-
-Some of these are highly developed and powerful, others are quickly-assembled
-shell scripts.  Read the individual help information for full descriptions
-(use either the `-h` flag when calling or use `more` to read the file header).
-
-Many rely on Spacepy, sometimes on *development versions* of Spacepy.
-Users should be aware of this limitation when running into issues.
-
+LET'S BREAK THIS CRAP YO.
 ## Script Summary
 
 | Script Name | Description |
