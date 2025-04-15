@@ -24,6 +24,7 @@ Users should be aware of this limitation when running into issues.
 | countfiles.sh | Count files in the current working directory, list in alphabetical order (faster than Python version). |
 | create_mhd_movieframes.py | Create a series of PNG files from a geospace simulation. |
 | ezquota.py | Check file quota status on NASA's Pleiades supercomputer. |
+| l1_propagate.py | Ballistically propagate solar wind parameters from L1 to the SWMF upstream boundary. |
 | maggrid_extract.py | Extract a time series of values from a series of magnetometer grid output files. |
 | make_movie.py | Using FFMPEG, turn a series of PNG files into a movie file.
 | plot_sim_summary.py | Create a summary plot for a geospace simulation. |
