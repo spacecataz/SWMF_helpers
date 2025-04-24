@@ -22,7 +22,7 @@ CURRENT ASSUMPTIONS (to change):
 - GSM coordinates for B, V vectors.
 - The spacecraft is located along the GSM X-axis.
 
-This script works with ACE and WIND data obtained from CDAWeb.
+This script works with ACE, Wind, and DSCOVR data obtained from CDAWeb.
 
 ACE spacecraft CDFs come in pairs: a SWEPAM file with plasma information,
 spacecraft position, etc. and an MFI file with magnetic field data. If you
@@ -40,8 +40,21 @@ ACE spacecraft CDFs must contain the following variables:
 | Tpr                   | Plasma temperature (K)                              |
 | Epoch                 | CDF-formatted universal time.                       |
 
-WIND spacecraft CDFs are single file downloads.
-WIND spacecraft CDFs must contain the following variables:
+WIND spacecraft CDFs are multi-file downloads; look for **wi_h1s_swe** and
+**wi_h0s_mfi** file types on CDAWeb.
+| Variable Name(s) | Description                                            |
+|------------------|--------------------------------------------------------|
+| PGSM (optional)  | Distance from Earth (Re) in GSM/GSE coordinates.       |
+| BGSM             | Vector magnetic field (nT) data in GSM coordinates.    |
+| Proton_VX_moment | Vector solar wind velocity (km/s) in GSE coordinates.  |
+| Proton_VY_moment | ... in the Y direction                                 |
+| Proton_VZ_moment | ... in the Z direction                                 |
+| Np               | Proton number density (1/ccm)                          |
+| Proton_W_moment  | Plasma thermal velocity, converted to temperature (K)  |
+| Epoch            | CDF-formatted universal time.                          |
+
+It is possible to obtain single-file formats for WIND; such CDFs must contain
+the following variables:
 | Variable Name(s) | Description                                            |
 |------------------|--------------------------------------------------------|
 | XGSM (optional)  | Distance from Earth (Re) in GSM/GSE coordinates.       |
@@ -50,6 +63,8 @@ WIND spacecraft CDFs must contain the following variables:
 | Np               | Proton number density (1/ccm)                          |
 | TEMP             | Plasma temperature (K)                                 |
 | Epoch            | CDF-formatted universal time.                          |
+
+DSCOVR data come in two CDFs:
 '''
 
 from glob import glob
@@ -76,8 +91,16 @@ parser = ArgumentParser(description=__doc__,
 parser.add_argument("file", type=str,
                     help='An L1 dataset in CDF format that contains the ' +
                     'required variables.')
+parser.add_argument("-f2", "--file2", type=str, help="Specify the matching " +
+                    "file for two-file sets (e.g., ACE SWE and MFI files). " +
+                    "Note that the script will auto-search for the 2nd file " +
+                    "if this argument is not set.")
 parser.add_argument("-v", "--verbose", default=False, action='store_true',
                     help="Turn on verbose output mode.")
+# parser.add_argument("-r", "--rotate", default=True,
+#                     help="Rotate coordinates from GSE to GSM (default) as " +
+#                     "applicable. If set to false, GSE coordinates are " +
+#                     "used and noted in the file header.")
 parser.add_argument("--debug", default=False, action='store_true',
                     help="Turn on debugging mode.")
 parser.add_argument("-o", "--outfile", default='IMF', help="Set " +
@@ -94,11 +117,48 @@ parser.add_argument("--tshift", "-t", type=float, default=-1.0,
 args = parser.parse_args()
 
 # Declare important constants
-RE = 6371  # Earth radius in kmeters.
-l1_dist = 1495980  # L1 distance in km.
-bound_dist = 32 * RE  # Distance to BATS-R-US upstream boundary from Earth.
+RE = 6371              # Earth radius in kmeters.
+l1_dist = 1495980      # L1 distance in km.
+kboltz = 1.380649E-23  # Boltzmann constant, J/K
+mp = 1.67262192E-27    # Proton mass in Kg
+bound_dist = 32 * RE   # Distance to BATS-R-US upstream boundary from Earth.
+
+# Set var names and units.
 swmf_vars = ['bx', 'by', 'bz', 'ux', 'uy', 'uz', 'n', 't']
 units = {v: u for v, u in zip(swmf_vars, 3*['nT']+3*['km/s']+['cm-3', 'K'])}
+
+
+def gse_to_gsm(x, y, z, time):
+    '''
+    Use spacepy's Coord module to rotate from GSE to GSM.
+
+    Parameters
+    ----------
+    x, y, z : Numpy array-like
+        The GSE X, Y, and Z values of the timeseries to rotate.
+    time : array of Datetimes
+        The time corresponding to the xyz timeseries.
+
+    Returns
+    -------
+    x, y, z : Numpy arrays
+        The rotated values now in GSM coordinates.
+    '''
+
+    from spacepy.coordinates import Coords
+    from spacepy.time import Ticktock
+
+    # Convert time to ticktocks:
+    ticks = Ticktock(time, 'ISO')
+
+    # Rearrange values to correct shape:
+    xyz = np.array([x, y, z]).transpose()
+
+    # Rotate:
+    gse_vals = Coords(xyz, 'GSM', 'car', ticks=ticks)
+    gsm_vals = gse_vals.convert('GSM', 'car')
+
+    return gsm_vals.x, gsm_vals.y, gsm_vals.z
 
 
 def pair(time1, data, time2, **kwargs):
@@ -139,20 +199,153 @@ def pair(time1, data, time2, **kwargs):
     return func(t2)
 
 
-def read_wind(fname):
-    # cdf_vars = ['BX', 'BY', 'BZ', 'VX', 'VY', 'VZ', 'Np', 'TEMP']
-    # Open solar wind data and load variables into a dictionary:
-    obs = CDF(fname)
-    raw = {'bx': obs['BX'][...], 'by': obs['BY'][...], 'bz': obs['BZ'][...],
-           'ux': obs['VX'][...], 'uy': obs['VY'][...], 'uz': obs['VZ'][...],
-           'n': obs['Np'][...], 't': obs['TEMP'][...],
-           'time': obs['Epoch'][...]}
+def read_dscov(fname, fname2=None):
+    '''
+    Given 1 or 2 of 2 DSCOVR data CDFs (one for the Faraday cup, one for MAG),
+    load the data and map to SWMF variables. If only one file name is given,
+    the other will be automatically determined based on the first.
 
-    # If position: convert to km!
+    Return a dictionary where each key is an SWMF var name mapped to the
+    corresponding value in the DSCOVR data.
+    '''
+    # Get critical parts of file name:
+    result = re.search('dscovr\_h\ds\_(fc|mag)\_(\d+)\_(\d+)(\_cdaweb)?\.cdf',
+                       args.file)
+    ftype, stime, etime, cdatag = result.groups()
+
+    if args.verbose:
+        print(f"Found start/end times in file name of {stime}, {etime}")
+
+    # Set path of files.
+    dirname = path.dirname(fname)
+    if dirname == '':
+        dirname = './'
+
+    # Find partner files; load CDFs.
+    if 'fc' in ftype:
+        fc = CDF(fname)
+        # Get matching data:
+        if not fname2:
+            # Build matching name
+            basefile = f'dscovr_h?s_mag_{stime}_{etime}{cdatag}.cdf'
+            fname2 = glob(path.join(dirname, basefile))[0]
+        mag = CDF(fname2)
+    elif 'mag' in ftype:
+        mag = CDF(fname)
+        # Get  matching data:
+        if not fname2:
+            # Build matching name
+            basefile = f'dscovr_h?s_fc_{stime}_{etime}{cdatag}.cdf'
+            fname2 = glob(path.join(dirname, basefile))[0]
+        fc = CDF(fname2)
+    else:
+        raise ValueError('Expected "mag" or "fc" in CDF file name.')
+
+    # Extract plasma parameters from SWEPAM
+    raw = {'time': fc['Epoch'][:], 'n': fc['Np'][:],
+           't': fc['Tpr'][:], 'ux': fc['V_GSM'][:, 0],
+           'uy': fc['V_GSM'][:, 1], 'uz': fc['V_GSM'][:, 2], }
+
+    # Optional values:
+    if 'SC_pos_GSM' in fc:
+        raw['pos'] = fc['SC_pos_GSM'][:, 0]
+    if 'alpha_ratio' in fc:
+        raw['alpha'] = fc['alpha_ratio'][...]
+
+    # Pair high-time resolution mag data to SWEPAM time:
+    t_mag = mag['Epoch'][...]
+    for i, b in enumerate(['bx', 'by', 'bz']):
+        raw[b] = pair(t_mag, mag['BGSM'][:, i], raw['time'])
+
     return raw
 
 
-def read_ace(fname):
+def read_wind(fname, fname2=None):
+    '''
+    Given 1 or 2 of 2 Wind data CDFs (one for SWEPAM, one for MAG), load the
+    data and map to SWMF variables. If only one file name is given, the
+    other will be automatically determined based on the first.
+
+    Return a dictionary where each key is an SWMF var name mapped to the
+    corresponding value in the ACE data.
+    '''
+    # Get critical parts of file name:
+    result = re.search('wi(nd)?\_h\ds\_(mfi|swe)\_(\d+)' +
+                       '\_(\d+)(\_cdaweb)?\.cdf', fname)
+
+    # If the above doesn't match, use single-file alternative:
+    if result is None:
+        if args.verbose:
+            print("Single-file WIND data detected...")
+        # cdf_vars = ['BX', 'BY', 'BZ', 'VX', 'VY', 'VZ', 'Np', 'TEMP']
+        # Open solar wind data and load variables into a dictionary:
+        obs = CDF(fname)
+        raw = {'bx': obs['BX'][...], 'by': obs['BY'][...],
+               'bz': obs['BZ'][...], 'ux': obs['VX'][...],
+               'uy': obs['VY'][...], 'uz': obs['VZ'][...],
+               'n': obs['Np'][...], 't': obs['TEMP'][...],
+               'time': obs['Epoch'][...]}
+        return raw
+
+    # Otherwise, two-file system. Use names to determine file (MFI vs. SWE)
+    has_nd, ftype, stime, etime, cdatag = result.groups()
+
+    if args.verbose:
+        print("Two-file WIND data detected.")
+        print(f"Found start/end times in file name of {stime}, {etime}")
+
+    # Set path of files.
+    dirname = path.dirname(fname)
+    if dirname == '':
+        dirname = './'
+
+    # Find partner files; load CDFs.
+    if 'swe' in ftype:
+        swe = CDF(fname)
+        # Get matching data:
+        if not fname2:
+            # Build matching name
+            basefile = f'wi*_h?s_mfi_{stime}_{etime}{cdatag}.cdf'
+            fname2 = glob(path.join(dirname, basefile))[0]
+        mag = CDF(fname2)
+    elif 'mfi' in ftype:
+        mag = CDF(fname)
+        # Get  matching data:
+        if not fname2:
+            # Build matching name
+            basefile = f'wi*_h?s_swe_{stime}_{etime}{cdatag}.cdf'
+            fname2 = glob(path.join(dirname, basefile))[0]
+        swe = CDF(fname2)
+    else:
+        raise ValueError('Expected "mfi" or "swe" in CDF file name.')
+
+    # Convert coordinates:
+    vx, vy, vz = gse_to_gsm(swe['Proton_VX_moment'][:],
+                            swe['Proton_VY_moment'][:],
+                            swe['Proton_VZ_moment'][:], swe['Epoch'][:])
+
+    # Convert temperature
+    temp = (mp/(2*kboltz))*(swe['Proton_W_moment'][:]*1000)**2
+
+    # Extract plasma parameters
+    raw = {'time': swe['Epoch'][:], 'n': swe['Proton_Np_moment'][:],
+           't': temp, 'ux': vx, 'uy': vy, 'uz': vz}
+
+    # Extract magnetic field parameters:
+    t_mag = mag['Epoch'][...]
+    for i, b in enumerate(['bx', 'by', 'bz']):
+        raw[b] = pair(t_mag, mag['BGSM'][:, i], raw['time'])
+
+    # Optional values: Update with more experience w/ wind...
+    # if 'alpha_ratio' in swe:
+    #     raw['alpha'] = swe['alpha_ratio'][...]
+    if 'PGSM' in mag:
+        raw['pos'] = pair(t_mag, mag['PGSM'][:, 0], raw['time']) * RE
+
+    return raw
+
+
+def read_ace(fname, fname2=None):
     '''
     Given 1 of 2 ACE data CDFs (one for SWEPAM, one for MAG), find the matching
     CDF and load the data. Map to SWMF variables.
@@ -162,9 +355,9 @@ def read_ace(fname):
     '''
 
     # Get critical parts of file name:
-    result = re.search('ac\_h\ds\_mfi\_(\d+)\_(\d+)(\_cdaweb)?\.cdf',
+    result = re.search('ac\_h\ds\_(mfi|swe)\_(\d+)\_(\d+)(\_cdaweb)?\.cdf',
                        args.file)
-    stime, etime, cdatag = result.groups()
+    ftype, stime, etime, cdatag = result.groups()
     if args.verbose:
         print(f"Found start/end times in file name of {stime}, {etime}")
 
@@ -174,17 +367,21 @@ def read_ace(fname):
         dirname = './'
 
     # Find partner files.
-    if 'swe' in fname:
+    if 'swe' in ftype:
         swe = CDF(fname)
-        # Build matching name
-        basefile = f'ac_h?s_mfi_{stime}_{etime}{cdatag}.cdf'
-        fname2 = glob(path.join(dirname, basefile))[0]
+        # Open matching file:
+        if not fname2:
+            # Build matching name
+            basefile = f'ac_h?s_mfi_{stime}_{etime}{cdatag}.cdf'
+            fname2 = glob(path.join(dirname, basefile))[0]
         mag = CDF(fname2)
-    elif 'mfi' in fname:
+    elif 'mfi' in ftype:
         mag = CDF(fname)
-        # Build matching name
-        basefile = f'ac_h?s_swe_{stime}_{etime}{cdatag}.cdf'
-        fname2 = glob(path.join(dirname, basefile))[0]
+        # Open matching file:
+        if not fname2:
+            # Build matching name
+            basefile = f'ac_h?s_swe_{stime}_{etime}{cdatag}.cdf'
+            fname2 = glob(path.join(dirname, basefile))[0]
         swe = CDF(fname2)
     else:
         raise ValueError('Expected "mfi" or "swe" in CDF file name.')
@@ -208,13 +405,19 @@ def read_ace(fname):
     return raw
 
 
-# Open CDF and determine if this is an ACE or WIND data file.
-if 'mfi' in args.file or 'swe' in args.file:
-    raw = read_ace(args.file)
+# ## Begin main script ## #
+# Look at filename; determine source and convert data.
+if (args.file[:2] == 'ac') and ('mfi' in args.file or 'swe' in args.file):
+    raw = read_ace(args.file, args.file2)
+elif args.file[:2] == 'wi':
+    raw = read_wind(args.file, args.file2)
+elif args.file[:6] == 'dscovr':
+    raw = read_dscov(args.file, args.file2)
 
 # Get S/C distance. If not in file, use approximation.
 if 'pos' in raw:
-    print('S/C location found! Using dynamic location.')
+    if args.verbose:
+        print('S/C location found! Using dynamic location.')
     raw['X'] = raw['pos'] - bound_dist
 else:
     if args.verbose:
@@ -229,7 +432,13 @@ if args.verbose:
     print('Removing bad data:')
 for v in swmf_vars + ['X']:
     # Find bad values:
-    loc = ~np.isfinite(raw[v]) | (raw[v] <= -1E31)
+    loc = ~np.isfinite(raw[v]) | (np.abs(raw[v]) >= 1E29)
+    if v == 'n':
+        loc = (loc) | (raw[v] > 1E4)
+    if v == 't':
+        loc = (loc) | (raw[v] > 1E7)
+    if v in ['ux', 'uy', 'uz']:
+        loc = (loc) | (np.abs(raw[v]) > 1E4)
     if args.verbose:
         print(f'\t{v} has {loc.sum()} bad values.')
     if loc.sum() == 0:
@@ -275,11 +484,17 @@ imfout = ImfInput(args.outfile+'.dat', load=False, npoints=len(keep))
 for v in swmf_vars:
     imfout[v] = dmarray(raw[v][keep], {'units': units[v]})
 imfout['time'] = tshift[keep]
-imfout.attrs['header'].append(f'Source data: {args.file}')
-imfout.attrs['header'].append('Ballistically propagted from L1 to upstream ' +
-                              'BATS-R-US boundary')
+imfout.attrs['header'].append(f'Source data: {args.file}\n')
+if args.tshift >= 0:
+    imfout.attrs['header'].append('Propagted from L1 to upstream ' +
+                                  'BATS-R-US boundary using a constant ' +
+                                  f'time delay of {args.tshift} minutes.\n')
+else:
+    imfout.attrs['header'].append('Ballistically propagted from L1 to ' +
+                                  'upstream BATS-R-US boundary\n')
+imfout.attrs['header'].append('\n')
 imfout.attrs['coor'] = 'GSM'
-imfout.attrs['satxyz'] = [raw['X']/RE, 0, 0]
+imfout.attrs['satxyz'] = [np.mean(raw['X'])/RE, 0, 0]
 imfout.attrs['header'].append(f'File created on {datetime.now()}')
 
 imfout.write()
