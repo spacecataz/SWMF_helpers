@@ -208,7 +208,7 @@ def pair(time1, data, time2, varname=None, **kwargs):
 
     # Search for bad data values and remove:
     loc = ~np.isfinite(data) | (np.abs(data) >= 1E15)
-    if varname == 'n':
+    if varname in ['n', 'alpha']:
         loc = (loc) | (data > 1E4)
     elif varname == 't':
         loc = (loc) | (data > 1E7)
@@ -260,7 +260,7 @@ def read_dscov(fname, fname2=None):
 
     # Find partner files; load CDFs.
     if 'fc' in ftype:
-        fc = CDF(fname)
+        fcp = CDF(fname)
         # Get matching data:
         if not fname2:
             # Build matching name
@@ -274,25 +274,33 @@ def read_dscov(fname, fname2=None):
             # Build matching name
             basefile = f'dscovr_h?s_fc_{stime}_{etime}{cdatag}.cdf'
             fname2 = glob(path.join(dirname, basefile))[0]
-        fc = CDF(fname2)
+        fcp = CDF(fname2)
     else:
         raise ValueError('Expected "mag" or "fc" in CDF file name.')
 
-    # Extract plasma parameters from SWEPAM
-    raw = {'time': fc['Epoch'][:], 'n': fc['Np'][:],
-           't': fc['Tpr'][:], 'ux': fc['V_GSM'][:, 0],
-           'uy': fc['V_GSM'][:, 1], 'uz': fc['V_GSM'][:, 2], }
+    # Get unified time:
+    t_fcp, t_mag = fcp['Epoch'][:], mag['Epoch1'][:]
+    time = unify_time(t_fcp, t_mag)
 
-    # Optional values:
-    if 'SC_pos_GSM' in fc:
-        raw['pos'] = fc['SC_pos_GSM'][:, 0]
-    if 'alpha_ratio' in fc:
-        raw['alpha'] = fc['alpha_ratio'][...]
+    # Convert coordinates:
+    vx, vy, vz = gse_to_gsm(fcp['V_GSE'][:, 0], fcp['V_GSE'][:, 1],
+                            fcp['V_GSE'][:, 2], t_fcp)
+
+    # Extract plasma parameters from Farraday cup instrument:
+    raw = {'time': time,
+           'n': pair(t_fcp, fcp['Np'][:], time, varname='n'),
+           't': pair(t_fcp, fcp['THERMAL_TEMP'][:], time, varname='t'),
+           'ux': pair(t_fcp, vx, time, varname='ux'),
+           'uy': pair(t_fcp, vy, time, varname='uy'),
+           'uz': pair(t_fcp, vz, time, varname='uz')}
+
+    # Rotate magnetic field from GSE to GSM:
+    bx, by, bz = gse_to_gsm(mag['B1GSE'][:, 0], mag['B1GSE'][:, 1],
+                            mag['B1GSE'][:, 2], t_mag)
 
     # Pair high-time resolution mag data to SWEPAM time:
-    t_mag = mag['Epoch'][...]
-    for i, b in enumerate(['bx', 'by', 'bz']):
-        raw[b] = pair(t_mag, mag['BGSM'][:, i], raw['time'])
+    for b, bval in zip(['bx', 'by', 'bz'], [bx, by, bz]):
+        raw[b] = pair(t_mag, bval, time, varname=b)
 
     return raw
 
@@ -431,32 +439,48 @@ def read_ace(fname, fname2=None):
     else:
         raise ValueError('Expected "mfi" or "swe" in CDF file name.')
 
+    # Get unified time:
+    t_swe, t_mag = swe['Epoch'][:], mag['Epoch'][:]
+    time = unify_time(t_swe, t_mag)
+
     # Extract plasma parameters from SWEPAM
-    raw = {'time': swe['Epoch'][:], 'n': swe['Np'][:],
-           't': swe['Tpr'][:], 'ux': swe['V_GSM'][:, 0],
-           'uy': swe['V_GSM'][:, 1], 'uz': swe['V_GSM'][:, 2], }
+    raw = {'time': time,
+           'n': pair(t_swe, swe['Np'][:], time, varname='n'),
+           't': pair(t_swe, swe['Tpr'][:], time, varname='t'),
+           'ux': pair(t_swe, swe['V_GSM'][:, 0], time, varname='ux'),
+           'uy': pair(t_swe, swe['V_GSM'][:, 1], time, varname='uy'),
+           'uz': pair(t_swe, swe['V_GSM'][:, 2], time, varname='uz')}
 
     # Optional values:
-    if 'SC_pos_GSM' in swe:
-        raw['pos'] = swe['SC_pos_GSM'][:, 0]
+    if 'SC_pos_GSM' in mag:
+        raw['pos'] = pair(t_mag, mag['SC_pos_GSM'][:, 0], time, 'pos')
     if 'alpha_ratio' in swe:
-        raw['alpha'] = swe['alpha_ratio'][...]
+        raw['alpha'] = pair(t_swe, swe['alpha_ratio'][:], time, 'alpha')
 
     # Pair high-time resolution mag data to SWEPAM time:
-    t_mag = mag['Epoch'][...]
     for i, b in enumerate(['bx', 'by', 'bz']):
-        raw[b] = pair(t_mag, mag['BGSM'][:, i], raw['time'])
+        raw[b] = pair(t_mag, mag['BGSM'][:, i], time, varname=b)
 
     return raw
 
 
 # ## Begin main script ## #
 # Look at filename; determine source and convert data.
+if args.verbose:
+    print('Reading the following files:')
+    print(f'\tFile 1: {args.file}')
+    print(f'\tFile 2: {args.file2}')
 if (args.file[:2] == 'ac') and ('mfi' in args.file or 'swe' in args.file):
+    if args.verbose:
+        print('ACE data file detected.')
     raw = read_ace(args.file, args.file2)
 elif args.file[:2] == 'wi':
+    if args.verbose:
+        print('Wind data file detected.')
     raw = read_wind(args.file, args.file2)
 elif args.file[:6] == 'dscovr':
+    if args.verbose:
+        print('DSCOVR data file detected.')
     raw = read_dscov(args.file, args.file2)
 
 # Create seconds-from-start time array:
