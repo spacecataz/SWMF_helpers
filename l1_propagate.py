@@ -462,25 +462,6 @@ elif args.file[:6] == 'dscovr':
 # Create seconds-from-start time array:
 tsec = np.array([(t - raw['time'][0]).total_seconds() for t in raw['time']])
 
-# Interpolate over bad data:
-if args.verbose:
-    print('Removing bad data:')
-for v in swmf_vars + ['pos']:
-    # Find bad values:
-    loc = ~np.isfinite(raw[v]) | (np.abs(raw[v]) >= 1E15)
-    if v == 'n':
-        loc = (loc) | (raw[v] > 1E4)
-    if v == 't':
-        loc = (loc) | (raw[v] > 1E7)
-    if v in ['ux', 'uy', 'uz']:
-        loc = (loc) | (np.abs(raw[v]) > 1E4)
-    if args.verbose:
-        print(f'\t{v} has {loc.sum()} bad values.')
-    if loc.sum() == 0:
-        continue
-    interp = interp1d(tsec[~loc], raw[v][~loc])
-    raw[v][loc] = interp(tsec[loc])
-
 # Get S/C distance. If not in file, use approximation.
 if 'pos' in raw:
     if args.verbose:
