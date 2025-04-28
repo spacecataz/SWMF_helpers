@@ -64,7 +64,16 @@ the following variables:
 | TEMP             | Plasma temperature (K)                                 |
 | Epoch            | CDF-formatted universal time.                          |
 
-DSCOVR data come in two CDFs:
+DSCOVR data come in two CDFs: one for the Faraday cup instrument (plasma) and
+one for the magnetic field instrument. CDAweb files should begin with
+dscovr_h0s_mag or dscovr_h1s_fc.
+| Variable Name(s) | Description                                            |
+|------------------|--------------------------------------------------------|
+| B1GSE            | Vector magnetic field (nT) data in GSE coordinates.    |
+| V_GSE            | Vector solar wind velocity (km/s) in GSE coordinates.  |
+| Np               | Proton number density (1/ccm)                          |
+| THERMAL_TEMP     | Plasma thermal temperature                             |
+| Epoch/Epoch1     | CDF-formatted universal time in the fc/mag files.      |
 '''
 
 from glob import glob
@@ -286,7 +295,7 @@ def read_dscov(fname, fname2=None):
     vx, vy, vz = gse_to_gsm(fcp['V_GSE'][:, 0], fcp['V_GSE'][:, 1],
                             fcp['V_GSE'][:, 2], t_fcp)
 
-    # Extract plasma parameters from Farraday cup instrument:
+    # Extract plasma parameters from Faraday cup instrument:
     raw = {'time': time,
            'n': pair(t_fcp, fcp['Np'][:], time, varname='n'),
            't': pair(t_fcp, fcp['THERMAL_TEMP'][:], time, varname='t'),
