@@ -214,8 +214,8 @@ def pair(time1, data, time2, varname=None, **kwargs):
         loc = (loc) | (data > 1E7)
     elif varname in ['ux', 'uy', 'uz']:
         loc = (loc) | (np.abs(data) > 1E4)
-    elif args.verbose:
-        print(f'\t{v} has {loc.sum()} bad values.')
+    if args.verbose:
+        print(f"Found {loc.sum():05d} bad data points in variable {varname}")
 
     t1, data = t1[~loc], data[~loc]
 
