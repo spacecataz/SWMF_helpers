@@ -161,13 +161,33 @@ def gse_to_gsm(x, y, z, time):
     return gsm_vals.x, gsm_vals.y, gsm_vals.z
 
 
-def pair(time1, data, time2, **kwargs):
+def unify_time(time1, time2):
+    '''
+    Given two timeseries, combine all unique points into a single array.
+    '''
+
+    time1 = time1.tolist()
+    time2 = time2.tolist()
+
+    for t in time2:
+        if t not in time1:
+            time1.append(t)
+
+    time1.sort()
+    return np.array(time1)
+
+
+def pair(time1, data, time2, varname=None, **kwargs):
     '''
     Use linear interpolation to pair two timeseries of data.  Data set 1
     (data) with time t1 will be interpolated to match time set 2 (t2).
     The returned values, d3, will be data set 1 at time 2.
     No extrapolation will be done; t2's boundaries should encompass those of
     t1.
+
+    Bad data values will be removed prior to interpolation. The `varname`
+    kwarg will determine what is considered "bad". Possible varnames include:
+    n, t, u[xyz], b[xyz], pos
 
     This function will correctly handle masked functions such that masked
     values will not be considered.
@@ -186,6 +206,19 @@ def pair(time1, data, time2, **kwargs):
     t1 = date2num(time1)
     t2 = date2num(time2)
 
+    # Search for bad data values and remove:
+    loc = ~np.isfinite(data) | (np.abs(data) >= 1E15)
+    if varname == 'n':
+        loc = (loc) | (data > 1E4)
+    elif varname == 't':
+        loc = (loc) | (data > 1E7)
+    elif varname in ['ux', 'uy', 'uz']:
+        loc = (loc) | (np.abs(data) > 1E4)
+    elif args.verbose:
+        print(f'\t{v} has {loc.sum()} bad values.')
+
+    t1, data = t1[~loc], data[~loc]
+
     # Remove masked values (if given):
     if type(data) is MaskedArray:
         if type(data.mask) is not bool_:
@@ -195,7 +228,11 @@ def pair(time1, data, time2, **kwargs):
             d = data
     else:
         d = data
+
+    # Create interpolator function
     func = interp1d(t1, d, fill_value='extrapolate', **kwargs)
+
+    # Interpolate and return.
     return func(t2)
 
 
@@ -319,6 +356,10 @@ def read_wind(fname, fname2=None):
     else:
         raise ValueError('Expected "mfi" or "swe" in CDF file name.')
 
+    # Create unified time:
+    t_swe, t_mag = swe['Epoch'][:], mag['Epoch'][:]
+    time = unify_time(t_swe, t_mag)
+
     # Convert coordinates:
     vx, vy, vz = gse_to_gsm(swe['Proton_VX_moment'][:],
                             swe['Proton_VY_moment'][:],
@@ -328,19 +369,23 @@ def read_wind(fname, fname2=None):
     temp = (mp/(2*kboltz))*(swe['Proton_W_moment'][:]*1000)**2
 
     # Extract plasma parameters
-    raw = {'time': swe['Epoch'][:], 'n': swe['Proton_Np_moment'][:],
-           't': temp, 'ux': vx, 'uy': vy, 'uz': vz}
+    raw = {'time': time,
+           'n': pair(t_swe, swe['Proton_Np_moment'][:], time, varname='n'),
+           't': pair(t_swe, temp, time, varname='t'),
+           'ux': pair(t_swe, vx, time, varname='ux'),
+           'uy': pair(t_swe, vy, time, varname='uy'),
+           'uz': pair(t_swe, vz, time, varname='uz')}
 
     # Extract magnetic field parameters:
-    t_mag = mag['Epoch'][...]
     for i, b in enumerate(['bx', 'by', 'bz']):
-        raw[b] = pair(t_mag, mag['BGSM'][:, i], raw['time'])
+        raw[b] = pair(t_mag, mag['BGSM'][:, i], raw['time'], varname=b)
 
     # Optional values: Update with more experience w/ wind...
     # if 'alpha_ratio' in swe:
     #     raw['alpha'] = swe['alpha_ratio'][...]
     if 'PGSM' in mag:
-        raw['pos'] = pair(t_mag, mag['PGSM'][:, 0], raw['time']) * RE
+        raw['pos'] = pair(t_mag, mag['PGSM'][:, 0],
+                          raw['time'], varname='pos') * RE
 
     return raw
 
@@ -414,25 +459,15 @@ elif args.file[:2] == 'wi':
 elif args.file[:6] == 'dscovr':
     raw = read_dscov(args.file, args.file2)
 
-# Get S/C distance. If not in file, use approximation.
-if 'pos' in raw:
-    if args.verbose:
-        print('S/C location found! Using dynamic location.')
-    raw['X'] = raw['pos'] - bound_dist
-else:
-    if args.verbose:
-        print('S/C location NOT found, using static L1 distance.')
-    raw['X'] = l1_dist - bound_dist
-
 # Create seconds-from-start time array:
 tsec = np.array([(t - raw['time'][0]).total_seconds() for t in raw['time']])
 
 # Interpolate over bad data:
 if args.verbose:
     print('Removing bad data:')
-for v in swmf_vars + ['X']:
+for v in swmf_vars + ['pos']:
     # Find bad values:
-    loc = ~np.isfinite(raw[v]) | (np.abs(raw[v]) >= 1E29)
+    loc = ~np.isfinite(raw[v]) | (np.abs(raw[v]) >= 1E15)
     if v == 'n':
         loc = (loc) | (raw[v] > 1E4)
     if v == 't':
@@ -443,8 +478,18 @@ for v in swmf_vars + ['X']:
         print(f'\t{v} has {loc.sum()} bad values.')
     if loc.sum() == 0:
         continue
-    interp = interp1d(tsec[~loc], raw[v][~loc], fill_value="extrapolate")
+    interp = interp1d(tsec[~loc], raw[v][~loc])
     raw[v][loc] = interp(tsec[loc])
+
+# Get S/C distance. If not in file, use approximation.
+if 'pos' in raw:
+    if args.verbose:
+        print('S/C location found! Using dynamic location.')
+    raw['X'] = raw['pos'] - bound_dist
+else:
+    if args.verbose:
+        print('S/C location NOT found, using static L1 distance.')
+    raw['X'] = l1_dist - bound_dist
 
 # Apply velocity smoothing as required
 if args.verbose:
