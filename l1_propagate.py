@@ -164,7 +164,7 @@ def gse_to_gsm(x, y, z, time):
     xyz = np.array([x, y, z]).transpose()
 
     # Rotate:
-    gse_vals = Coords(xyz, 'GSM', 'car', ticks=ticks)
+    gse_vals = Coords(xyz, 'GSE', 'car', ticks=ticks)
     gsm_vals = gse_vals.convert('GSM', 'car')
 
     return gsm_vals.x, gsm_vals.y, gsm_vals.z
