@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 '''
 This script will create a set of data-model comparisons between a given
 SWMF magnetometer output file and any matching magnetometers (by 3 letter IAGA
@@ -45,7 +45,7 @@ parser.add_argument("-l", "--labels", nargs='+', help='Set legend labels for eac
                     'model included in the comparison')
 parser.add_argument("-o", "--outdir", default='mag_compares', help="Set " +
                     "output directory for plots.  Defaults to ./mag_compares")
-parser.add_argument("-z", "--horizontal", default=True, help="Instead of dBdown, " +
+parser.add_argument("-z", "--horizontal", default=False, action='store_true', help="Instead of dBdown, " +
                     "plot the horizontal component of dB. Requires calculation of " +
                     "the H component in the SuperMAG reader.")
 parser.add_argument("--debug", default=False, action='store_true',
