@@ -82,6 +82,7 @@ nCpus = float(parts[iCol])
 # Get "previous hour" values.
 PrevLoc = cpu_t >= (cpu_t[-1]-3600.0)
 MedInst = np.median(eff_inst[PrevLoc[1:]])
+EffHour = (run_t[PrevLoc][-1] - run_t[PrevLoc][0]) / 3600.
 EffRate = 3600.0*(eff[PrevLoc][-1]-eff[PrevLoc][0]) / \
     (cpu_t[PrevLoc][-1]-cpu_t[PrevLoc][0])
 EffCpu = eff[-1]/nCpus
@@ -92,6 +93,7 @@ nCpuRT = EffCpu**-1
 print("----------=========Efficiency Report=========----------")
 print(("Simulated %06.2f Hrs in %06.2f Hrs (%06.3fX Real Time)" %
        (run_t[-1]/3600.0, cpu_t[-1]/3600.0, eff[-1])).center(55))
+print(f"Total Efficiency over past hour = {EffHour:06.3f}X".center(55))
 print(("Median Instantaneous Eff. in past hour = %06.3fX" %
        (np.median(eff_inst[PrevLoc[1:]]))).center(55))
 if EffRate < 0:
