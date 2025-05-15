@@ -23,7 +23,7 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import numpy as np
 from spacepy.datamodel import dmarray, SpaceData
 from spacepy.pybats import bats
-# import supermag_api as smapi
+import supermag_api as smapi
 
 
 parser = ArgumentParser(description=__doc__,
@@ -62,12 +62,12 @@ if data.attrs['coord'] != 'SMG':
                   f'(coords={data.attrs["coord"]})')
 
 # CHECK MAX/MIN LAT HERE! WARN AS NECESSARY!
-### Are degrees used
-if data.attrs['Lat'].max() != 80. or data.attrs['Lat'].min() != 40.:
+# ??? Are degrees used
+if mags['Lat'].max() != 80. or mags['Lat'].min() != 40.:
     warnings.warn('Latitude is outside of standard ' +
-                  "expected range = [40.0\u00B0 - 80.0\u00B0]" +
-                  f'actual range = [{data.attrs['Lat'].min()}' 
-                  + chr(176) + ' - ' + data.attrs['Lat'].max() + chr(176))
+                    "expected range = [40.0\u00B0 - 80.0\u00B0]" +
+                    f' actual range = [{mags['Lat'].min()}'
+                    + chr(176) + ' - ' + f'{mags['Lat'].max()}' + chr(176))
 
 # Add time:
 data['time'] = mags.attrs['times']
@@ -102,12 +102,12 @@ for i in range(nframe):
     data['mlat_U'][i] = mags['Lat'][ind_max[1]]
 
 # Convert SM longitude to MLT:
-data['mlt_L'][i] = dmarray(data['lon_L'][i] / 15. + 12., {'units': 'Hours'})
-data['mlt_U'][i] = dmarray(data['lon_U'][i] / 15. + 12., {'units': 'Hours'})
+# data['mlt_L'][i] = dmarray(data['lon_L'][i] / 15. + 12., {'units': 'Hours'})
+# data['mlt_U'][i] = dmarray(data['lon_U'][i] / 15. + 12., {'units': 'Hours'})
 
 # GRAB DATA FROM SUPERMAGAPI HERE!
 # Store in `data`!
-# data['SuperMag'] = smapi.fetch_index(tstart, tend, 'amland')
+data['SuperMag'] = smapi.fetch_index(tstart, tend, 'amland')
 
 # Write output file to disk.
 data.toJSONheadedASCII(args.outfile)
