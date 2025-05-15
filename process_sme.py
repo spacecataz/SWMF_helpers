@@ -62,6 +62,12 @@ if data.attrs['coord'] != 'SMG':
                   f'(coords={data.attrs["coord"]})')
 
 # CHECK MAX/MIN LAT HERE! WARN AS NECESSARY!
+### Are degrees used
+if data.attrs['Lat'].max() != 80. or data.attrs['Lat'].min() != 40.:
+    warnings.warn('Latitude is outside of standard ' +
+                  "expected range = [40.0\u00B0 - 80.0\u00B0]" +
+                  f'actual range = [{data.attrs['Lat'].min()}' 
+                  + chr(176) + ' - ' + data.attrs['Lat'].max() + chr(176))
 
 # Add time:
 data['time'] = mags.attrs['times']
@@ -101,6 +107,7 @@ data['mlt_U'][i] = dmarray(data['lon_U'][i] / 15. + 12., {'units': 'Hours'})
 
 # GRAB DATA FROM SUPERMAGAPI HERE!
 # Store in `data`!
+# data['SuperMag'] = smapi.fetch_index(tstart, tend, 'amland')
 
 # Write output file to disk.
 data.toJSONheadedASCII(args.outfile)
