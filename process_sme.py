@@ -16,7 +16,7 @@ data = datamodel.readJSONheadedASCII('sm_indexes.txt')
 '''
 
 import re
-import datetime as dt
+import datetime
 import warnings
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
@@ -65,9 +65,9 @@ if data.attrs['coord'] != 'SMG':
 # ??? Are degrees used
 if mags['Lat'].max() != 80. or mags['Lat'].min() != 40.:
     warnings.warn('Latitude is outside of standard ' +
-                    "expected range = [40.0\u00B0 - 80.0\u00B0]" +
-                    f' actual range = [{mags['Lat'].min()}'
-                    + chr(176) + ' - ' + f'{mags['Lat'].max()}' + chr(176))
+                  "expected range = [40.0\u00B0 - 80.0\u00B0]" +
+                  f' actual range = [{mags['Lat'].min()}' + chr(176) + ' - ' +
+                  f'{mags['Lat'].max()}' + chr(176))
 
 # Add time:
 data['time'] = mags.attrs['times']
@@ -102,12 +102,20 @@ for i in range(nframe):
     data['mlat_U'][i] = mags['Lat'][ind_max[1]]
 
 # Convert SM longitude to MLT:
-# data['mlt_L'][i] = dmarray(data['lon_L'][i] / 15. + 12., {'units': 'Hours'})
-# data['mlt_U'][i] = dmarray(data['lon_U'][i] / 15. + 12., {'units': 'Hours'})
+data['mlt_L'] = dmarray(data['lon_L'] / 15. + 12., {'units': 'Hours'})
+data['mlt_U'] = dmarray(data['lon_U'] / 15. + 12., {'units': 'Hours'})
+
+# Adjust MLT to account for the earth being a sphere
+for i in range(nframe):
+    if data['mlt_L'][i] > 24.:
+        data['mlt_L'][i] = data['mlt_L'][i] - 24.
+
+    if data['mlt_U'][i] > 24.:
+        data['mlt_U'][i] = data['mlt_U'][i] - 24.
 
 # GRAB DATA FROM SUPERMAGAPI HERE!
 # Store in `data`!
-data['SuperMag'] = smapi.fetch_index(tstart, tend, 'amland')
-
+SuperMag = smapi.fetch_index(tstart, tend, 'amland')
+data['SMU'] = SuperMag['SMU']
 # Write output file to disk.
 data.toJSONheadedASCII(args.outfile)
