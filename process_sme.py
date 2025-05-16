@@ -16,10 +16,12 @@ data = datamodel.readJSONheadedASCII('sm_indexes.txt')
 '''
 
 import re
-import datetime
+import datetime as dt
+from matplotlib.dates import date2num, num2date
 import warnings
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
+from scipy import interpolate
 import numpy as np
 from spacepy.datamodel import dmarray, SpaceData
 from spacepy.pybats import bats
@@ -114,8 +116,20 @@ for i in range(nframe):
         data['mlt_U'][i] = data['mlt_U'][i] - 24.
 
 # GRAB DATA FROM SUPERMAGAPI HERE!
-# Store in `data`!
-SuperMag = smapi.fetch_index(tstart, tend, 'amland')
-data['SMU'] = SuperMag['SMU']
+SuperMag = smapi.fetch_index(tstart, tend + dt.timedelta(minutes=+2), 'amland')
+# timedelta is accounting for the api issue
+
+# Interpolate Data and Store in `data`!
+time_real = np.linspace(date2num(data['time']).min(),
+                        date2num(data['time']).max(), len(data['time']))
+SMvars = ['SMU', 'SMUmlat', 'SMUmlt', 'SML', 'SMLmlat', 'SMLmlt']
+for v in SMvars:
+    SM2SWMF = interpolate.interp1d(date2num(SuperMag['time']), SuperMag[v],
+                                   kind='linear')
+    data[v] = SM2SWMF(time_real)
+
+# Fix times
+data['time'] = date2num(data['time'])
+
 # Write output file to disk.
 data.toJSONheadedASCII(args.outfile)
