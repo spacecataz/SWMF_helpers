@@ -13,6 +13,13 @@ from spacepy import datamodel
 data = datamodel.readJSONheadedASCII('sm_indexes.txt')
 ```
 
+NOTE: The time is in a number format, to use dates use matplotlib as follows:
+
+```
+from matplotlib.dates import num2date
+data['time'] = num2date(data['time'])
+```
+
 '''
 
 import re
@@ -70,6 +77,8 @@ if mags['Lat'].max() != 80. or mags['Lat'].min() != 40.:
                   "expected range = [40.0\u00B0 - 80.0\u00B0]" +
                   f' actual range = [{mags['Lat'].min()}' + chr(176) + ' - ' +
                   f'{mags['Lat'].max()}' + chr(176))
+data.attrs['lat range'] = (f'{mags['Lat'].min()}' + chr(176) + ' - ' +
+                           f'{mags['Lat'].max()}' + chr(176))
 
 # Add time:
 data['time'] = mags.attrs['times']
@@ -117,12 +126,16 @@ for i in range(nframe):
 
 # GRAB DATA FROM SUPERMAGAPI HERE!
 SuperMag = smapi.fetch_index(tstart, tend + dt.timedelta(minutes=+2), 'amland')
-# timedelta is accounting for the api issue
+# timedelta is accounting for the api issue and allowing for interpolation
+
+# for testing as to not call the SuperMAG site everytime
+SuperMag.toJSONheadedASCII(args.outfile + '_SuperMAG')
 
 # Interpolate Data and Store in `data`!
 time_real = np.linspace(date2num(data['time']).min(),
                         date2num(data['time']).max(), len(data['time']))
-SMvars = ['SMU', 'SMUmlat', 'SMUmlt', 'SML', 'SMLmlat', 'SMLmlt']
+SMvars = ['SMU', 'SMUmlat', 'SMUmlt', 'SML', 'SMLmlat', 'SMLmlt']  # variables
+# to take from SuperMAG
 for v in SMvars:
     SM2SWMF = interpolate.interp1d(date2num(SuperMag['time']), SuperMag[v],
                                    kind='linear')
