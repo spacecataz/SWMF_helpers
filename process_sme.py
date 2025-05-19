@@ -129,7 +129,7 @@ SuperMag = smapi.fetch_index(tstart, tend + dt.timedelta(minutes=+2), 'amland')
 # timedelta is accounting for the api issue and allowing for interpolation
 
 # for testing as to not call the SuperMAG site everytime
-SuperMag.toJSONheadedASCII(args.outfile + '_SuperMAG')
+SuperMag.toJSONheadedASCII('SuperMAG_' + args.outfile)
 
 # Interpolate Data and Store in `data`!
 time_real = np.linspace(date2num(data['time']).min(),
