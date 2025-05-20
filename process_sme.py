@@ -24,7 +24,7 @@ data['time'] = num2date(data['time'])
 
 import re
 import datetime as dt
-from matplotlib.dates import date2num, num2date
+from matplotlib.dates import date2num  # num2date
 import warnings
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
@@ -57,7 +57,7 @@ data = SpaceData()
 data.attrs['descrip'] = 'Supermag-like indexes from SWMF MagGrid files.'
 
 # Add attributes to data object based on magnetometer grid input file:
-data.attrs['header'] = mags.attrs['header']
+data.attrs['header'] = mags.attrs['header'].strip()
 # stash max/min lat in file as an attribute!
 
 # Extract coordinate system for magnetometer location:
@@ -140,6 +140,10 @@ for v in SMvars:
     SM2SWMF = interpolate.interp1d(date2num(SuperMag['time']), SuperMag[v],
                                    kind='linear')
     data[v] = SM2SWMF(time_real)
+
+# Add attributes from data
+data.attrs['dates'] = (f'{data['time'].min()}' + ' - ' +
+                           f'{data['time'].max()}' )
 
 # Fix times
 data['time'] = date2num(data['time'])
