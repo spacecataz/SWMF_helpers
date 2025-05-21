@@ -74,11 +74,11 @@ if data.attrs['coord'] != 'SMG':
 # ??? Are degrees used
 if mags['Lat'].max() != 80. or mags['Lat'].min() != 40.:
     warnings.warn('Latitude is outside of standard ' +
-                  "expected range = [40.0\u00B0 - 80.0\u00B0]" +
-                  f' actual range = [{mags['Lat'].min()}' + chr(176) + ' - ' +
-                  f'{mags['Lat'].max()}' + chr(176))
-data.attrs['lat range'] = (f'{mags['Lat'].min()}' + chr(176) + ' - ' +
-                           f'{mags['Lat'].max()}' + chr(176))
+                  f"expected range = [40.0{chr(176)} - 80.0{chr(176)}]" +
+                  f' actual range = [{mags['Lat'].min()}{chr(176)} - ' +
+                  f'{mags['Lat'].max()}{chr(176)}]')
+data.attrs['lat range'] = (f'{mags['Lat'].min()}{chr(176)} - ' +
+                           f'{mags['Lat'].max()}{chr(176)}')
 
 # Add time:
 data['time'] = mags.attrs['times']
@@ -143,7 +143,7 @@ for v in SMvars:
 
 # Add attributes from data
 data.attrs['dates'] = (f'{data['time'].min()}' + ' - ' +
-                           f'{data['time'].max()}' )
+                       f'{data['time'].max()}')
 
 # Fix times
 data['time'] = date2num(data['time'])
