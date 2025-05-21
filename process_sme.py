@@ -124,9 +124,9 @@ for i in range(nframe):
     if data['mlt_U'][i] > 24.:
         data['mlt_U'][i] = data['mlt_U'][i] - 24.
 
-# GRAB DATA FROM SUPERMAGAPI HERE!
-SuperMag = smapi.fetch_index(tstart, tend + dt.timedelta(minutes=+2), 'amland')
-# timedelta is accounting for the api issue and allowing for interpolation
+# Grab data from supermag. Extend range to ensure continuous interpolation.
+SuperMag = smapi.fetch_index(tstart - dt.timedelta(minutes=-2),
+                             tend + dt.timedelta(minutes=+2), 'amland')
 
 # for testing as to not call the SuperMAG site everytime
 SuperMag.toJSONheadedASCII('SuperMAG_' + args.outfile)
@@ -134,8 +134,9 @@ SuperMag.toJSONheadedASCII('SuperMAG_' + args.outfile)
 # Interpolate Data and Store in `data`!
 time_real = np.linspace(date2num(data['time']).min(),
                         date2num(data['time']).max(), len(data['time']))
-SMvars = ['SMU', 'SMUmlat', 'SMUmlt', 'SML', 'SMLmlat', 'SMLmlt']  # variables
-# to take from SuperMAG
+# Variables we want to include from SuperMAG:
+SMvars = ['SMU', 'SMUmlat', 'SMUmlt', 'SML', 'SMLmlat', 'SMLmlt']
+# Interpolate each in turn.
 for v in SMvars:
     SM2SWMF = interpolate.interp1d(date2num(SuperMag['time']), SuperMag[v],
                                    kind='linear')
@@ -143,7 +144,7 @@ for v in SMvars:
 
 # Add attributes from data
 data.attrs['dates'] = (f'{data['time'].min()}' + ' - ' +
-                       f'{data['time'].max()}')
+                       f'{data['time'].max()}' )
 
 # Fix times
 data['time'] = date2num(data['time'])
