@@ -216,7 +216,7 @@ else:
     start = get_start_time(prefix)
 # If we fail to find start time, stop code.
 if not start:
-    raise(ValueError('Simulation start time not found, use -start option.'))
+    raise ValueError('Simulation start time not found, use -start option.')
 print('\tStart time: {}'.format(start.isoformat()))
 
 # No imf file given?  Let's try to find one.
@@ -230,7 +230,7 @@ if not imffile:
     elif glob('../IMF*.dat'):
         imffile = glob('../IMF*.dat')[0]
     else:
-        raise(ValueError("Could not find IMF file.  Use -i flag."))
+        raise ValueError("Could not find IMF file.  Use -i flag.")
     print('\tIMF File: using {}'.format(imffile))
 
 # Obtain imf and log files.  Skip steady-state log files.
@@ -242,7 +242,7 @@ for logname in glob(prefix+'log_*.log'):
 
 # Did we find a log file?
 if 'log' not in locals():
-    raise(ValueError("Did not find MHD Logfile (required)."))
+    raise ValueError("Did not find MHD Logfile (required).")
 print('\tLog File: using {}'.format(logname))
 
 # Get observed DST.  Raise exception if we cannot.
@@ -283,7 +283,8 @@ def plot_results(fileY, fileZ, iFile=0, nFiles=1):
     # Check that times match:
     for t1, t2 in zip(time_y, time_z):
         if t1 != t2:
-            print(f'File times do not match!\n\tY-File: {t1}\n\tZ-File: {t2}')
+            print('\nFile times do not match!\n\tY-File: ' +
+                  f'{t1}\n\tZ-File: {t2}')
             raise ValueError('File time mismatch')
 
     # Use file time info get actual time:
@@ -309,9 +310,13 @@ def plot_results(fileY, fileZ, iFile=0, nFiles=1):
     mY.calc_utotal()
     mZ.calc_utotal()
 
-    if mZ.attrs['runtime'] != mY.attrs['runtime']:
-        print('{}\n{}\n'.format(fileY, fileZ))
-        raise(ValueError('Times of files do not line up!'))
+    # Check time again for consistency:
+    tdiff_now = np.abs(mZ.attrs['runtime'] - mY.attrs['runtime'])
+    if tdiff_now > 1.0:
+        print(f'\nFiles for current frame: {fileY}\n{fileZ}\n')
+        print(f'\nTimes for current frame: {mY.attrs["runtime"]}, ' +
+              f'{mY.attrs["runtime"]}')
+        raise ValueError('Times of files do not line up!')
 
     fig = plt.figure(figsize=[11, 8.5])
     fig.subplots_adjust(left=0.08, right=.96, bottom=0.06, top=.93)
