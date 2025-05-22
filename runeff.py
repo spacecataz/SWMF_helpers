@@ -94,8 +94,8 @@ nCpuRT = EffCpu**-1
 print("----------=========Efficiency Report=========----------")
 print(("Simulated %06.2f Hrs in %06.2f Hrs (%06.3fX Real Time)" %
        (run_t[-1]/3600.0, cpu_t[-1]/3600.0, eff[-1])).center(55))
-print(f"Total Efficiency over past {Minutes:.1f}mins = " +
-      f"{EffHour:06.3f}X".center(55))
+line = f"Total Efficiency over past {Minutes:.1f}mins = {EffHour:06.3f}X"
+print(line.center(55))
 print(("Median Instantaneous Eff. in past hour = %06.3fX" %
        (np.median(eff_inst[PrevLoc[1:]]))).center(55))
 if EffRate < 0:
