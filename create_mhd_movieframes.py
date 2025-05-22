@@ -32,6 +32,7 @@ This script should be run from the GM directory of an SWMF results directory
 '''
 
 import os
+import re
 from sys import stdout
 from glob import glob
 import datetime as dt
@@ -133,6 +134,36 @@ else:
 
 # Update to Spacepy Style
 style()
+
+
+def pair_outfiles(filename):
+    '''
+    Given a 2D slice, use glob to find the matching pair. If
+    a Z-slice is given, a Y-slice is found, etc.
+
+    If no match is found, `None` is returned.
+    '''
+
+    # Switch z and y, etc.
+    if 'y=0' in filename:
+        matchname = filename.replace('y=0', 'z=0')
+    elif 'z=0' in filename:
+        matchname = filename.replace('z=0', 'y=0')
+    else:
+        raise ValueError(f"{filename} is not a y=0/z=0 slice.")
+
+    # Replace file type number
+    matchname = re.sub('_\d_', '_?_', matchname)
+
+    # Remove sub-second digits
+    matchname = re.sub('-\d{3}.out', '-???.out', matchname)
+
+    # Does this file exist?
+    matches = glob(matchname)
+    if not matches:
+        return None
+    else:
+        return matches[0]
 
 
 def get_start_time(prefix):
@@ -399,14 +430,13 @@ def print_progress(percent):
 if __name__ == '__main__':
     # Find files, sort them.
     yFiles = glob(prefix+'y??_mhd*_[te]*.out')
-    zFiles = glob(prefix+'z??_mhd*_[te]*.out')
     yFiles.sort()
-    zFiles.sort()
-    if not (yFiles and zFiles):
-        raise(ValueError("Could not find any Y or Z slice files."))
+
+    if not (yFiles):
+        raise(ValueError("Could not find any Y=0 slice files."))
 
     if args.debug:
-        yFiles, zFiles = yFiles[:1], zFiles[:1]
+        yFiles = yFiles[:1]
 
     if args.info:
         mhd = pbs.Bats2d(yFiles[0])
@@ -425,8 +455,15 @@ if __name__ == '__main__':
         # Create pool of workers.
         pool = mp.Pool(args.nthread)
 
-        for i, files in enumerate(zip(yFiles, zFiles)):
-            pool.apply_async(plot_results, args=(files[0], files[1]),
+        for i, yfile in enumerate(yFiles):
+            # Find matching zfile:
+            zfile = pair_outfiles(yfile)
+
+            if zfile is None:
+                print(f'WARNING: No match for {yfile}')
+                continue
+
+            pool.apply_async(plot_results, args=(yfile, zfile),
                              kwds={'iFile': i, 'nFiles': nFiles},
                              callback=print_progress)
 
@@ -434,8 +471,14 @@ if __name__ == '__main__':
         pool.join()
 
     else:
-        for i, files in enumerate(zip(yFiles, zFiles)):
-            per = plot_results(files[0], files[1], i, nFiles)
+        for i, yfile in enumerate(yFiles):
+            # Find matching zfile:
+            zfile = pair_outfiles(yfile)
+            if zfile is None:
+                print(f'WARNING: No match for {yfile}')
+                continue
+
+            per = plot_results(yfile, zfile, i, nFiles)
             print_progress(per)
 
     print('\nALL DONE\n')
