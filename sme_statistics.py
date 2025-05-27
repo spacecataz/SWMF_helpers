@@ -1,48 +1,175 @@
 #!/usr/bin/env python3
 
 '''
-Given a txt file from the 'process_sme' script, calculate mean,
-median, max, min, and perhaps standard deviation, correlation, RMSE, skew,
-and kurtosis for a given time interval.
+Given a txt file and time interval from the 'process_sme' script, calculate
+mean, median, max, min, and perhaps standard deviation, correlation, RMSE,
+skew, and kurtosis for a given time interval.
 
-doc-string
-hour window, calculate mean, median, max, min, and perhaps standard deviation,
-correlation, RMSE, skew, and kurtosis
+Input format: data.txt -s %Y-%m-%dT%H:%M:%S -e %Y-%m-%dT%H:%M:%S
 '''
 
-# import re
-# import datetime as dt
-# import warnings
-
-from matplotlib.dates import num2date  # date2num
+from matplotlib.dates import date2num  # num2date
 from scipy import stats  # interpolate
 import numpy as np
-from spacepy.datamodel import SpaceData  # dmarray
 import spacepy.datamodel as dm
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from datetime import datetime as dt
+
 
 parser = ArgumentParser(description=__doc__,
                         formatter_class=RawDescriptionHelpFormatter)
 parser.add_argument('txtfile', type=str, help='Name of the data file ' +
                     'to calculate the statistics of the data.')
+parser.add_argument("-s", "--starttime", default=None, help='Start time' +
+                    ' using dt(year, month, day, hour, minute, second). ' +
+                    'Default to beginning of file.')
+parser.add_argument("-e", "--endtime", default=None, help='End time using ' +
+                    'dt(year, month, day, hour, minute, second). ' +
+                    'Defaults to end of file.')
 # parser.add_argument("-o", "--outfile", default='sm_indexes.txt', help="Set "
 #                    "output file name.  Defaults to 'sm_indexes.txt'")
 
 # Handle arguments:
 args = parser.parse_args()
 data = dm.readJSONheadedASCII(args.txtfile)
+if args.starttime is None:
+    start_time = None
+else:
+    start_time = dt.strptime(args.starttime, '%Y-%m-%dT%H:%M:%S')
 
-data['time'] = num2date(data['time'])
+if args.endtime is None:
+    end_time = None
+else:
+    end_time = dt.strptime(args.endtime, '%Y-%m-%dT%H:%M:%S')
+# fix dates #### NOTE: Should be adressed later
+# data['time'] = num2date(data['time'])
+# another thing for the time issue
 
-vars = ['SML', 'SWMFL', 'mlat_L', 'SMLmlat']  # ... for testing
-for v in vars:
-    data[v] = SpaceData(Values=data[v])
-    Vals = 'Values'
-    data[v] = SpaceData(data[v], Max=max(data[v][Vals]))
-    data[v] = SpaceData(data[v], Min=min(data[v][Vals]))
-    data[v] = SpaceData(data[v], Mean=(np.mean(data[v][Vals]) * 1.))
-    data[v] = SpaceData(data[v], Median=np.median(data[v][Vals]))
-    data[v] = SpaceData(data[v], Standard_Deviation=np.std(data[v][Vals]))
-    data[v] = SpaceData(data[v], Skew=stats.skew(data[v][Vals]))
-    data[v] = SpaceData(data[v], Kurtosis=stats.kurtosis(data[v][Vals]))
-    data[v] = SpaceData(data[v], Min=min(data[v][Vals]))
+
+# define the class
+class SMinterval:
+    start = None
+    end = None
+    swmfu = {}
+    swmfl = {}
+    '''
+    Given a mag_grid data object, a start time, and and end time;
+    returns statistics on the mlat and mlt data for both the smu and
+    SML.
+
+    If only one or no times are given, defaults to beginning or ending
+    time respectively.
+
+    SMinterval(mag_object, dt(start time), dt(end_time))
+    '''
+    def __init__(self, mag_object, start=None, end=None):
+        self.start = start
+        self.end = end
+        self.swmfl['mlat'] = self.calc_from_mags(mag_object, 'L', 'mlat')
+        self.swmfl['mlt'] = self.calc_from_mags(mag_object, 'L', 'mlt')
+        self.swmfu['mlat'] = self.calc_from_mags(mag_object, 'U', 'mlat')
+        self.swmfu['mlt'] = self.calc_from_mags(mag_object, 'U', 'mlt')
+
+    def calc_from_mags(self, mags, sm_index, value):
+        # Turns given time into numerical values for rounding
+        # If no time input is given defaults to beginning/ending time
+        if self.start is None:
+            start_time = mags['time'][0]
+        else:
+            start_time = date2num(self.start)
+
+        if self.end is None:
+            end_time = mags['time'][-1]
+        else:
+            end_time = date2num(self.end)
+
+        # Using the times pull the correct data for analysis
+        for i in range(len(mags['time'])):
+            if round(mags['time'][i], 4) == round(start_time, 4):
+                start_frame = i
+            elif round(mags['time'][i], 4) == round(end_time, 4):
+                end_frame = i + 1
+            else:
+                pass
+
+        index = value + '_' + sm_index
+        data = mags[index][start_frame:end_frame]
+
+        return SMdata(data, mags, index)
+
+
+class SMdata:
+    '''
+    Given a dataset, returns statistics for analyis.
+
+    Stats calculated:
+    Max
+    Min
+    Mean
+    Median
+    Standard Deviation
+    Skew
+    Kurtosis
+    '''
+    def __init__(self, data_in, mags, index):
+        self.data = data_in
+        self.stats = {}
+        self.correlation = {}
+        self.calc_stats(mags, index)
+        self.calc_corr(mags)
+
+    def __setitem__(self, key, value):
+        if isinstance(key, int) | isinstance(key, slice):
+            self.data[key] = value
+        elif isinstance(key, str):
+            self.stats[key] = value
+
+    def __getitem__(self, item):
+        if isinstance(item, int) | isinstance(item, slice):
+            return self.data[item]
+        elif isinstance(item, str):
+            return self.stats[item]
+
+    def calc_stats(self, mags, index):
+        # Calculate data statists
+        self.stats['mean'] = np.mean(self.data)
+        self.stats['median'] = np.median(self.data)
+        self.stats['max'] = max(self.data)
+        self.stats['min'] = min(self.data)
+        self.stats['standard deviation'] = np.std(self.data)
+        self.stats['skew'] = stats.skew(self.data)
+        self.stats['kurtosis'] = stats.kurtosis(self.data)
+
+        # Calculate RSME
+        if index == 'mlat_L':
+            MSE = np.square(np.subtract(mags['SMLmlat'], self.data)).mean()
+            RMSE = np.sqrt(MSE)
+            self.stats['correlation'] = stats.pearsonr(self.data,
+                                                       mags['SMLmlat'])
+        elif index == 'mlt_L':
+            MSE = np.square(np.subtract(mags['SMLmlt'], self.data)).mean()
+            RMSE = np.sqrt(MSE)
+            self.stats['correlation'] = stats.pearsonr(self.data,
+                                                       mags['SMLmlt'])
+        elif index == 'mlat_U':
+            MSE = np.square(np.subtract(mags['SMUmlat'], self.data)).mean()
+            RMSE = np.sqrt(MSE)
+            self.stats['correlation'] = stats.pearsonr(self.data,
+                                                       mags['SMUmlat'])
+        elif index == 'mlt_U':
+            MSE = np.square(np.subtract(mags['SMUmlt'], self.data)).mean()
+            RMSE = np.sqrt(MSE)
+            self.stats['correlation'] = stats.pearsonr(self.data,
+                                                       mags['SMUmlt'])
+        self.stats['RSME'] = RMSE
+
+    def calc_corr(self, mags):
+        list = ['SML', 'SMLmlat', 'SMLmlt', 'SMU', 'SMUmlat', 'SMUmlt',
+                'SWMFL', 'SWMFU', 'lon_L', 'lon_U', 'mlat_L', 'mlat_U',
+                'mlt_L', 'mlt_U', 'time']
+        for L in list:
+            self.correlation[L] = stats.pearsonr(self.data, mags[L])
+
+
+# Output data
+Stats = SMinterval(data, start=start_time, end=end_time)

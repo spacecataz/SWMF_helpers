@@ -144,7 +144,7 @@ for v in SMvars:
 
 # Add attributes from data
 data.attrs['dates'] = (f'{data['time'].min()}' + ' - ' +
-                       f'{data['time'].max()}' )
+                       f'{data['time'].max()}')
 
 # Fix times
 data['time'] = date2num(data['time'])
