@@ -125,7 +125,7 @@ for i in range(nframe):
         data['mlt_U'][i] = data['mlt_U'][i] - 24.
 
 # Grab data from supermag. Extend range to ensure continuous interpolation.
-SuperMag = smapi.fetch_index(tstart - dt.timedelta(minutes=-2),
+SuperMag = smapi.fetch_index(tstart - dt.timedelta(minutes=+2),
                              tend + dt.timedelta(minutes=+2), 'amland')
 
 # for testing as to not call the SuperMAG site everytime
