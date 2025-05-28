@@ -144,23 +144,27 @@ class SMdata:
         if index == 'mlat_L':
             MSE = np.square(np.subtract(mags['SMLmlat'], self.data)).mean()
             RMSE = np.sqrt(MSE)
-            self.stats['correlation'] = stats.pearsonr(self.data,
-                                                       mags['SMLmlat'])
+            self.stats['correlation coefficient'] = np.corrcoef(self.data,
+                                                                mags['SMLmlat']
+                                                                )[0, 1]
         elif index == 'mlt_L':
             MSE = np.square(np.subtract(mags['SMLmlt'], self.data)).mean()
             RMSE = np.sqrt(MSE)
-            self.stats['correlation'] = stats.pearsonr(self.data,
-                                                       mags['SMLmlt'])
+            self.stats['correlation coefficient'] = np.corrcoef(self.data,
+                                                                mags['SMLmlt']
+                                                                )[0, 1]
         elif index == 'mlat_U':
             MSE = np.square(np.subtract(mags['SMUmlat'], self.data)).mean()
             RMSE = np.sqrt(MSE)
-            self.stats['correlation'] = stats.pearsonr(self.data,
-                                                       mags['SMUmlat'])
+            self.stats['correlation coefficient'] = np.corrcoef(self.data,
+                                                                mags['SMUmlat']
+                                                                )[0, 1]
         elif index == 'mlt_U':
             MSE = np.square(np.subtract(mags['SMUmlt'], self.data)).mean()
             RMSE = np.sqrt(MSE)
-            self.stats['correlation'] = stats.pearsonr(self.data,
-                                                       mags['SMUmlt'])
+            self.stats['correlation coefficient'] = np.corrcoef(self.data,
+                                                                mags['SMUmlt']
+                                                                )[0, 1]
         self.stats['RSME'] = RMSE
 
     def calc_corr(self, mags):
@@ -168,7 +172,7 @@ class SMdata:
                 'SWMFL', 'SWMFU', 'lon_L', 'lon_U', 'mlat_L', 'mlat_U',
                 'mlt_L', 'mlt_U', 'time']
         for L in list:
-            self.correlation[L] = stats.pearsonr(self.data, mags[L])
+            self.correlation[L] = np.corrcoef(self.data, mags[L])
 
 
 # Output data
@@ -176,15 +180,15 @@ Stats = SMinterval(data, start=start_time, end=end_time)
 
 # Write stats to new file
 statistics = ['mean', 'median', 'max', 'min', 'standard deviation', 'skew',
-              'kurtosis', 'correlation', 'RSME']
+              'kurtosis', 'correlation coefficient', 'RSME']
 with open('Stats_' + args.txtfile, 'w') as f:
     f.write("============SWMFU============\n")
     for M in ['mlat', 'mlt']:
         f.write(M.upper() + ':\n')
         for s in statistics:
-            f.write(s + ': ' + str(Stats.swmfu[M].stats[s]) + '\n')
+            f.write(s + ': ' + str(round(Stats.swmfu[M].stats[s], 3)) + '\n')
     f.write("============SWMFL============\n")
     for M in ['mlat', 'mlt']:
         f.write(M.upper() + ':\n')
         for s in statistics:
-            f.write(s + ': ' + str(Stats.swmfl[M].stats[s]) + '\n')
+            f.write(s + ': ' + str(round(Stats.swmfl[M].stats[s], 3)) + '\n')
