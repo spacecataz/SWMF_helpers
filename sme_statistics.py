@@ -173,3 +173,18 @@ class SMdata:
 
 # Output data
 Stats = SMinterval(data, start=start_time, end=end_time)
+
+# Write stats to new file
+statistics = ['mean', 'median', 'max', 'min', 'standard deviation', 'skew',
+              'kurtosis', 'correlation', 'RSME']
+with open('Stats_' + args.txtfile, 'w') as f:
+    f.write("============SWMFU============\n")
+    for M in ['mlat', 'mlt']:
+        f.write(M.upper() + ':\n')
+        for s in statistics:
+            f.write(s + ': ' + str(Stats.swmfu[M].stats[s]) + '\n')
+    f.write("============SWMFL============\n")
+    for M in ['mlat', 'mlt']:
+        f.write(M.upper() + ':\n')
+        for s in statistics:
+            f.write(s + ': ' + str(Stats.swmfl[M].stats[s]) + '\n')
