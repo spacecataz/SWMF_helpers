@@ -13,7 +13,7 @@ from scipy import stats  # interpolate
 import numpy as np
 import spacepy.datamodel as dm
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from datetime import datetime as dt
+import datetime
 
 
 parser = ArgumentParser(description=__doc__,
@@ -35,12 +35,12 @@ data = dm.readJSONheadedASCII(args.txtfile)
 if args.starttime is None:
     start_time = None
 else:
-    start_time = dt.strptime(args.starttime, '%Y-%m-%dT%H:%M:%S')
+    start_time = datetime.datetime.strptime(args.starttime, '%Y-%m-%dT%H:%M:%S')
 
 if args.endtime is None:
     end_time = None
 else:
-    end_time = dt.strptime(args.endtime, '%Y-%m-%dT%H:%M:%S')
+    end_time = datetime.datetime.strptime(args.endtime, '%Y-%m-%dT%H:%M:%S')
 # fix dates #### NOTE: Should be adressed later
 # data['time'] = num2date(data['time'])
 # another thing for the time issue
@@ -48,8 +48,6 @@ else:
 
 # define the class
 class SMinterval:
-    start = None
-    end = None
     swmfu = {}
     swmfl = {}
     '''
@@ -86,16 +84,21 @@ class SMinterval:
         # Using the times pull the correct data for analysis
         for i in range(len(mags['time'])):
             if round(mags['time'][i], 4) == round(start_time, 4):
-                start_frame = i
+                self.sframe = i
             elif round(mags['time'][i], 4) == round(end_time, 4):
-                end_frame = i + 1
+                self.eframe = i + 1
             else:
                 pass
 
         index = value + '_' + sm_index
-        data = mags[index][start_frame:end_frame]
-
-        return SMdata(data, mags, index)
+        data = mags[index][self.sframe:self.eframe]
+        list = ['SML', 'SMLmlat', 'SMLmlt', 'SMU', 'SMUmlat', 'SMUmlt',
+                'SWMFL', 'SWMFU', 'lon_L', 'lon_U', 'mlat_L', 'mlat_U',
+                'mlt_L', 'mlt_U', 'time']
+        twags = {}
+        for L in list:
+            twags[L] = mags[L][self.sframe:self.eframe]
+        return SMdata(data, twags, index)
 
 
 class SMdata:
@@ -182,7 +185,10 @@ Stats = SMinterval(data, start=start_time, end=end_time)
 statistics = ['mean', 'median', 'max', 'min', 'standard deviation', 'skew',
               'kurtosis', 'correlation coefficient', 'RSME']
 with open('Stats_' + args.txtfile, 'w') as f:
-    f.write("============SWMFU============\n")
+    f.write(datetime.datetime.strftime(Stats.start, '%Y-%m-%d %H:%M:%S') +
+            " - " +
+            datetime.datetime.strftime(Stats.end, '%Y-%m-%d %H:%M:%S'))
+    f.write("\n============SWMFU============\n")
     for M in ['mlat', 'mlt']:
         f.write(M.upper() + ':\n')
         for s in statistics:
