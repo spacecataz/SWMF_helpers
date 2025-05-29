@@ -35,7 +35,8 @@ data = dm.readJSONheadedASCII(args.txtfile)
 if args.starttime is None:
     start_time = None
 else:
-    start_time = datetime.datetime.strptime(args.starttime, '%Y-%m-%dT%H:%M:%S')
+    start_time = datetime.datetime.strptime(args.starttime, '%Y-%m-%dT%H:%M:%S'
+                                            )
 
 if args.endtime is None:
     end_time = None
@@ -58,7 +59,8 @@ class SMinterval:
     If only one or no times are given, defaults to beginning or ending
     time respectively.
 
-    SMinterval(mag_object, dt(start time), dt(end_time))
+    SMinterval(mag_object, datetime.datetime(start_time),
+               datetime.datetime(end_time))
     '''
     def __init__(self, mag_object, start=None, end=None):
         self.start = start
@@ -90,6 +92,7 @@ class SMinterval:
             else:
                 pass
 
+        # Get correct range of data set fors analysis
         index = value + '_' + sm_index
         data = mags[index][self.sframe:self.eframe]
         list = ['SML', 'SMLmlat', 'SMLmlt', 'SMU', 'SMUmlat', 'SMUmlt',
@@ -98,6 +101,8 @@ class SMinterval:
         twags = {}
         for L in list:
             twags[L] = mags[L][self.sframe:self.eframe]
+
+        # Calculate the statistics
         return SMdata(data, twags, index)
 
 
@@ -113,6 +118,8 @@ class SMdata:
     Standard Deviation
     Skew
     Kurtosis
+    Correlation Coefficient
+    RSME
     '''
     def __init__(self, data_in, mags, index):
         self.data = data_in
@@ -143,7 +150,8 @@ class SMdata:
         self.stats['skew'] = stats.skew(self.data)
         self.stats['kurtosis'] = stats.kurtosis(self.data)
 
-        # Calculate RSME
+        # Calculate RSME and Correlation Coefficient between
+        # SWMF and SuperMAG values
         if index == 'mlat_L':
             MSE = np.square(np.subtract(mags['SMLmlat'], self.data)).mean()
             RMSE = np.sqrt(MSE)
@@ -171,6 +179,7 @@ class SMdata:
         self.stats['RSME'] = RMSE
 
     def calc_corr(self, mags):
+        # Correlation Coefficient compared to every value
         list = ['SML', 'SMLmlat', 'SMLmlt', 'SMU', 'SMUmlat', 'SMUmlt',
                 'SWMFL', 'SWMFU', 'lon_L', 'lon_U', 'mlat_L', 'mlat_U',
                 'mlt_L', 'mlt_U', 'time']
