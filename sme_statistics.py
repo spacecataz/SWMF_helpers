@@ -8,7 +8,7 @@ skew, and kurtosis for a given time interval.
 Input format: data.txt -s %Y-%m-%dT%H:%M:%S -e %Y-%m-%dT%H:%M:%S
 '''
 
-from matplotlib.dates import date2num  # num2date
+from matplotlib.dates import date2num, num2date
 from scipy import stats  # interpolate
 import numpy as np
 import spacepy.datamodel as dm
@@ -74,11 +74,13 @@ class SMinterval:
         # Turns given time into numerical values for rounding
         # If no time input is given defaults to beginning/ending time
         if self.start is None:
+            self.start = num2date(mags['time'][0])
             start_time = mags['time'][0]
-        else:
+        elif isinstance(self.start, datetime.datetime):
             start_time = date2num(self.start)
 
         if self.end is None:
+            self.end = num2date(mags['time'][-1])
             end_time = mags['time'][-1]
         else:
             end_time = date2num(self.end)
