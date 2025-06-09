@@ -76,7 +76,7 @@ class SMinterval:
         if self.start is None:
             self.start = num2date(mags['time'][0])
             start_time = mags['time'][0]
-        elif isinstance(self.start, datetime.datetime):
+        else:
             start_time = date2num(self.start)
 
         if self.end is None:
