@@ -11,6 +11,11 @@ As an intermediate step to making the movie, this script places
 the image files into /tmp/.  If this location is unavailable, use
 the -t option to change it.
 
+Notes
+-----
+FFMpeg tends to get along better with JPEG files than with PNG files,
+especially when the files are much larger than modern 1080p resolutions
+(1920x1080 resolution).
 '''
 
 import glob
@@ -40,12 +45,18 @@ parser.add_argument("-r", "--rate", default=25, type=int, help="Set the " +
 parser.add_argument("-n", "--nloop", default=0, type=int, help="Set number " +
                     "of times the video loops. 0 is no looping, -1 is " +
                     "infinite looping.")
+parser.add_argument("-c", "--checksize", default=False, action='store_true',
+                    help="If used, ffmpeg will resize images to ensure an " +
+                    "even number of pixels.")
 parser.add_argument("--debug", default=False, action='store_true',
                     help="Turn on debugging mode.")
 args = parser.parse_args()
 
 # Default/initial values not handled above:
 bps = 2400
+
+# Set duration for each slide:
+duration = 1 / args.rate
 
 if len(args.files) == 0:
     print("No files found to convert. Check input syntax.")
@@ -56,15 +67,18 @@ with open('.make_movie_input.txt', 'w') as outfile:
     args.files.sort()
     for f in args.files:
         outfile.write(f"file '{f}'\n")
+        outfile.write(f"duration {duration}\n")
 
 # Move files (no longer used?)
 # for i, ifile in enumerate(args.files):
 #     shutil.copyfile(ifile, '%simg_%08d.png' % (tmp,i))
 
 # Make movie
-cmd = 'ffmpeg -stream_loop {:d} -r {} '.format(args.nloop, args.rate) + \
-      '-f concat -i .make_movie_input.txt -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" ' + \
-      '-c:v libx264 -pix_fmt yuv420p {}'.format(args.outfile)
+cmd = f'ffmpeg -stream_loop {args.nloop:d} ' + \
+      '-f concat -i .make_movie_input.txt ' + \
+      args.checksize * '-vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" ' + \
+      f'-c:v libx264 -pix_fmt yuv420p -r {args.rate} {args.outfile}'
+
 # args.files -> args.tempdir
 
 if args.debug:
