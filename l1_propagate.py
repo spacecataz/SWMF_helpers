@@ -227,6 +227,8 @@ def pair(time1, data, time2, varname=None, **kwargs):
         print(f"Found {loc.sum():05d} bad data points in variable {varname}")
 
     t1, data = t1[~loc], data[~loc]
+    if data.size == 0:
+        raise ValueError('No valid data points in this time range.')
 
     # Remove masked values (if given):
     if type(data) is MaskedArray:
@@ -474,23 +476,25 @@ def read_ace(fname, fname2=None):
 
 
 # ## Begin main script ## #
-# Look at filename; determine source and convert data.
 if args.verbose:
     print('Reading the following files:')
     print(f'\tFile 1: {args.file}')
     print(f'\tFile 2: {args.file2}')
-if (args.file[:2] == 'ac') and ('mfi' in args.file or 'swe' in args.file):
+# Look at filename; determine source and convert data.
+if (path.basename(args.file)[:2] == 'ac') and ('mfi' in args.file or 'swe' in args.file):
     if args.verbose:
         print('ACE data file detected.')
     raw = read_ace(args.file, args.file2)
-elif args.file[:2] == 'wi':
+elif path.basename(args.file)[:2] == 'wi':
     if args.verbose:
         print('Wind data file detected.')
     raw = read_wind(args.file, args.file2)
-elif args.file[:6] == 'dscovr':
+elif path.basename(args.file)[:6] == 'dscovr':
     if args.verbose:
         print('DSCOVR data file detected.')
     raw = read_dscov(args.file, args.file2)
+else:
+    raise ValueError('Unknown data file type detected.')
 
 # Create seconds-from-start time array:
 tsec = np.array([(t - raw['time'][0]).total_seconds() for t in raw['time']])
