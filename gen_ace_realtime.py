@@ -40,7 +40,7 @@ parser.add_argument("-s", "--smoothing", default=5, type=int,
                     "smoothing. Default is 5 points (5 minute smoothing).")
 parser.add_argument("-v", "--verbose", default=False, action='store_true',
                     help="Turn on verbose output mode.")
-parser.add_argument("-w", "--wait", default=300,
+parser.add_argument("-w", "--wait", default=300, type=int,
                     help="Set wait time between refreshing data in seconds.")
 # delay between pulls.
 args = parser.parse_args()
@@ -68,7 +68,9 @@ def parse_ascii(stream):
     '''
 
     # Read first line, set file type based on that.
-    line = stream.readline().decode("utf-8")
+    line = stream.readline()
+    if type(line) is bytes:
+        line = line.decode("utf-8")
     # Create dict of varname:colnumber
     if 'mag' in line:
         varnames = {'bx': 7, 'by': 8, 'bz': 9}
@@ -79,7 +81,9 @@ def parse_ascii(stream):
 
     # Skip past header.
     while '#-------' not in line:
-        line = stream.readline().decode("utf-8")
+        line = stream.readline()
+        if type(line) is bytes:
+            line = line.decode("utf-8")
 
     # Grab the rest of the lines.
     lines = stream.readlines()
@@ -93,7 +97,10 @@ def parse_ascii(stream):
 
     # Parse!
     for i, l in enumerate(lines):
-        parts = l.decode('utf-8').split()
+        if type(l) is bytes:
+            parts = l.decode('utf-8').split()
+        else:
+            parts = l.split()
 
         # Get time:
         tstring = ' '.join(parts[:4])
@@ -106,13 +113,16 @@ def parse_ascii(stream):
     return data
 
 
-def fetch_ace():
+def fetch_ace(raw_swe=None, raw_mag=None):
     '''
     Fetch the current RT ace results and convert to SWMF format.
+
     '''
 
-    raw_swe = parse_ascii(urllib.request.urlopen(address_swe))
-    raw_mag = parse_ascii(urllib.request.urlopen(address_mag))
+    if raw_swe is None:
+        raw_swe = parse_ascii(urllib.request.urlopen(address_swe))
+    if raw_mag is None:
+        raw_mag = parse_ascii(urllib.request.urlopen(address_mag))
 
     # Check times: are we consistent?
     if (raw_swe['time'].size != raw_mag['time'].size) or \
@@ -141,7 +151,8 @@ def fetch_ace():
         # Linearly interpolate over bad values, using "last good value"
         # for the final points.
         tfilt, vfilt = time[locgood], data[v][locgood]
-        func = interp1d(tfilt, vfilt, fill_value=(vfilt[0], vfilt[-1]))
+        func = interp1d(tfilt, vfilt, fill_value=(vfilt[0], vfilt[-1]),
+                        bounds_error=False)
         data[v] = func(time)
 
     # Convert velocity to right coords:
@@ -184,15 +195,35 @@ def fetch_ace():
     return imfout
 
 
+def test_fetch():
+    '''
+    This function is for verifying the parse_ascii function.
+    '''
+
+    fname1 = 'data/ace-swepam.txt'
+    fname2 = 'data/ace-magnetometer.txt'
+    with open(fname1, 'r') as f1, open(fname2, 'r') as f2:
+        raw_swe = parse_ascii(f1)
+        raw_mag = parse_ascii(f2)
+        imf = fetch_ace(raw_swe, raw_mag)
+
+    return imf
+
+
 # ## START MAIN SCRIPT
 # Initialize a file.
 if args.initfile:
+    print('Opening initial file...')
     imf = ImfInput(args.initfile)
 else:
+    print('Fetching initial data...')
     imf = fetch_ace()
+
+print('Beginning main loop.')
 
 # Watch for data!
 while True:
+    print(20*'-')
     # Wait a bit.
     sleep(args.wait)
 
