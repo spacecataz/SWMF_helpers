@@ -139,7 +139,7 @@ def fetch_ace(raw_swe=None, raw_mag=None):
     time = date2num(data['time'])
     for v in allvars:
         # Get all valid points.
-        locgood = data[v] > -9999
+        locgood = data[v] > -999
 
         # If no valid points, raise exception.
         # If no bad points, no need to fill.
