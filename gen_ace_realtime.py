@@ -8,7 +8,8 @@ Data is fetched from https://services.swpc.noaa.gov
 Bad data values are removed via linear interpolation or, if occurring at end
 of data stream, via persistence.
 
-All data is ballistically propagated foward in time.
+All data is ballistically propagated foward in time. Values newer than the
+previous last good data point are appended to the output file.
 '''
 
 import urllib
@@ -116,7 +117,6 @@ def parse_ascii(stream):
 def fetch_ace(raw_swe=None, raw_mag=None):
     '''
     Fetch the current RT ace results and convert to SWMF format.
-
     '''
 
     if raw_swe is None:
@@ -215,6 +215,7 @@ def test_fetch():
 if args.initfile:
     print('Opening initial file...')
     imf = ImfInput(args.initfile)
+    imf.attrs['file'] = args.outfile
 else:
     print('Fetching initial data...')
     imf = fetch_ace()
