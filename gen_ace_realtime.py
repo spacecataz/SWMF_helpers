@@ -218,14 +218,15 @@ if args.initfile:
 else:
     print('Fetching initial data...')
     imf = fetch_ace()
+    print('Success! Waiting for updates...')
+    sleep(args.wait)
 
 print('Beginning main loop.')
 
 # Watch for data!
 while True:
     print(20*'-')
-    # Wait a bit.
-    sleep(args.wait)
+    # Wait a bi
 
     tnow = datetime.datetime.now()
     print(f'UPDATING DATA AT T={tnow}')
@@ -237,9 +238,10 @@ while True:
     imf_new.write()
 
     # Update main data file:
-    loc = imf_new['time'] > imf['time']
+    loc = imf_new['time'] > imf['time'][-1]
     if loc.sum() == 0:
         print('\nNo new data values.')
+        sleep(args.wait)
         continue
     print(f'\tAppending {loc.sum()} new values...')
     imf['time'] = np.append(imf['time'], imf_new['time'][loc])
@@ -248,3 +250,4 @@ while True:
 
     print('\tWriting updated file.')
     imf.write()
+    sleep(args.wait)
