@@ -14,6 +14,7 @@ previous last good data point are appended to the output file.
 
 import urllib
 import datetime
+import json
 from time import sleep
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
@@ -62,10 +63,51 @@ bound_dist = 32 * RE   # Distance to BATS-R-US upstream boundary from Earth.
 travel_dist = l1_dist - bound_dist  # Actual distance to propagate.
 
 
+def parse_json(stream):
+    '''
+    Given a json data stream from real time solar wind data,
+    convert to a dictionary of Numpy arrays.
+
+    Argument `stream` can accept a `.read()` compatable stream, e.g., file
+    or URLresponse.
+    '''
+
+    raw = json.load(stream)
+    header = raw.pop(0)
+
+    # Create dict of varname:colnumber
+    if 'bx_gsm' in header:
+        varnames = {'bx': 1, 'by': 2, 'bz': 3}
+    elif 'density' in header:
+        varnames = {'n': 1, 'ux': 2, 't': 3}
+
+    # Create data container.
+    nlines = len(raw)
+    data = {}
+    data['time'] = np.zeros(nlines, dtype=object)
+    for v in varnames.keys():
+        data[v] = np.zeros(nlines)
+
+    # Parse!
+    for i, r in enumerate(raw):
+        # Get time:
+        data['time'][i] = datetime.datetime.strptime(r[0],
+                                                     '%Y-%m-%d %H:%M:%S.000')
+
+        # Get other variables:
+        for v in varnames:
+            data[v][i] = r[varnames[v]]
+
+    return data
+
+
 def parse_ascii(stream):
     '''
-    Given a list of lines from Real Time ACE, convert to a dictionary of
+    Given a data stream from Real Time ACE, convert to a dictionary of
     Numpy arrays.
+
+    Argument `stream` can accept a `.read()` compatable stream, e.g., file
+    or URLresponse.
     '''
 
     # Read first line, set file type based on that.
@@ -114,9 +156,9 @@ def parse_ascii(stream):
     return data
 
 
-def fetch_ace(raw_swe=None, raw_mag=None):
+def fetch_rtsw(raw_swe=None, raw_mag=None):
     '''
-    Fetch the current RT ace results and convert to SWMF format.
+    Fetch the current RT solar wind results and convert to SWMF format.
     '''
 
     if raw_swe is None:
@@ -197,7 +239,7 @@ def fetch_ace(raw_swe=None, raw_mag=None):
 
 def test_fetch():
     '''
-    This function is for verifying the parse_ascii function.
+    This function is for verifying the data fetch function.
     '''
 
     fname1 = 'data/ace-swepam.txt'
@@ -205,7 +247,7 @@ def test_fetch():
     with open(fname1, 'r') as f1, open(fname2, 'r') as f2:
         raw_swe = parse_ascii(f1)
         raw_mag = parse_ascii(f2)
-        imf = fetch_ace(raw_swe, raw_mag)
+        imf = fetch_rtsw(raw_swe, raw_mag)
 
     return imf
 
@@ -218,7 +260,7 @@ if args.initfile:
     imf.attrs['file'] = args.outfile
 else:
     print('Fetching initial data...')
-    imf = fetch_ace()
+    imf = fetch_rtsw()
     print('Success! Waiting for updates...')
     sleep(args.wait)
 
@@ -234,7 +276,7 @@ while True:
 
     # Get updated data:
     print('\tFetching data....')
-    imf_new = fetch_ace()
+    imf_new = fetch_rtsw()
     print('\tSuccess. Saving interim file.')
     imf_new.write()
 
