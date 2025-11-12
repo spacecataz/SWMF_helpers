@@ -282,37 +282,6 @@ def fetch_rtsw(raw_swe=None, raw_mag=None, source='rtsw', duration=2):
     for v in allvars[3:]:
         data[v] = pair(raw_mag['time'], raw_mag[v], time)
 
-    # # Check times: are we consistent?
-    # if (raw_swe['time'].size != raw_mag['time'].size) or \
-    #    (raw_swe['time'][0] != raw_mag['time'][0]) or \
-    #    (raw_swe['time'][-1] != raw_mag['time'][-1]):
-    #     raise ValueError('SWEPAM and MAG times do not match.')
-#
-    # # Combine data sets.
-    # data = raw_swe
-    # for v in allvars[3:]:
-    #     data[v] = raw_mag[v]
-#
-    # # Remove bad data values.
-    # time = date2num(data['time'])
-    # for v in allvars:
-    #     # Get all valid points.
-    #     locgood = data[v] > badflag
-#
-    #     # If no valid points, raise exception.
-    #     # If no bad points, no need to fill.
-    #     if locgood.sum() == 0:
-    #         raise ValueError(f'No valid data for variable {v}.')
-    #     elif locgood.sum() == data['time'].size:
-    #         continue
-#
-    #     # Linearly interpolate over bad values, using "last good value"
-    #     # for the final points.
-    #     tfilt, vfilt = time[locgood], data[v][locgood]
-    #     func = interp1d(tfilt, vfilt, fill_value=(vfilt[0], vfilt[-1]),
-    #                     bounds_error=False)
-    #     data[v] = func(time)
-
     # Convert velocity to right coords:
     data['ux'] *= -1
 
@@ -373,7 +342,6 @@ def test_fetch():
         imf2 = fetch_rtsw(raw_swe, raw_mag)
 
     return imf1, imf2
-
 
 
 # ## START MAIN SCRIPT
