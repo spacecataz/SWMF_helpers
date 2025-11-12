@@ -12,10 +12,10 @@ All data is ballistically propagated foward in time. Values newer than the
 previous last good data point are appended to the output file.
 '''
 
-import urllib
 import datetime
 import json
 from time import sleep
+from urllib.request import urlopen
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
 import numpy as np
@@ -99,9 +99,6 @@ def pair(time1, data, time2, **kwargs):
     A common option is to set fill_value='extrapolate' to prevent
     bounds errors.
     '''
-
-    from scipy.interpolate import interp1d
-    from matplotlib.dates import date2num
 
     # Dates to floats:
     t1 = date2num(time1)
@@ -244,9 +241,9 @@ def fetch_rtsw(raw_swe=None, raw_mag=None, source='rtsw', duration=2):
 
     # Data stream not provided, create:
     if raw_swe is None:
-        raw_swe = parse(urllib.request.urlopen(url_pls))
+        raw_swe = parse(urlopen(url_pls))
     if raw_mag is None:
-        raw_mag = parse(urllib.request.urlopen(url_mag))
+        raw_mag = parse(urlopen(url_mag))
 
     # We want no extrapolation into the future of any variable.
     # Remove trailing bad data values by finding the last good point for all
