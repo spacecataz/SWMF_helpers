@@ -347,12 +347,15 @@ def test_fetch():
 # ## START MAIN SCRIPT
 # Initialize a file.
 if args.initfile:
-    print('Opening initial file...')
+    print(f'Opening initial file: {args.initfile}')
     imf = ImfInput(args.initfile)
     imf.attrs['file'] = args.outfile
 else:
     print('Fetching initial data...')
     imf = fetch_rtsw(source=args.datasrc, duration=6)
+    imf.attrs['file'] = args.outfile
+    print(f'Writing initial values to {imf.attrs["file"]}')
+    imf.write()
     print('Success! Waiting for updates...')
     sleep(args.wait)
 
@@ -369,7 +372,7 @@ while True:
     # Get updated data:
     print('\tFetching data....')
     imf_new = fetch_rtsw(source=args.datasrc, duration=2)
-    print('\tSuccess. Saving interim file.')
+    print(f'\tSuccess. Saving interim file to {imf_new.attrs["file"]}')
     imf_new.write()
 
     # Update main data file:
@@ -378,11 +381,11 @@ while True:
         print('\tNo new data values.')
         sleep(args.wait)
         continue
-    print(f'\tAppending {loc.sum()} new values...')
+    print(f'\tAppending {loc.sum()} new values to {imf.attrs["file"]}')
     imf['time'] = np.append(imf['time'], imf_new['time'][loc])
     for v in imf.attrs['var']:
         imf[v] = np.append(imf[v], imf_new[v][loc])
 
-    print('\tWriting updated file.')
+    print(f'\tWriting updated file ({imf.attrs["file"]}).')
     imf.write()
     sleep(args.wait)
