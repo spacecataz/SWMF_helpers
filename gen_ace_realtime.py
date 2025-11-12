@@ -165,7 +165,7 @@ def fetch_ace(raw_swe=None, raw_mag=None):
     # Time shift:
     velsmooth = medfilt(data['ux'], args.smoothing)
     shift = travel_dist / velsmooth
-    tshift = np.array([t1 + datetime.timedelta(seconds=t2) for t1, t2 in
+    tshift = np.array([t1 - datetime.timedelta(seconds=t2) for t1, t2 in
                       zip(data['time'], shift)])
 
     # Ensure that any points that are "overtaken" (i.e., slow wind overcome by
