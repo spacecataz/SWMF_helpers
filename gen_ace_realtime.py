@@ -40,6 +40,8 @@ parser.add_argument("-s", "--smoothing", default=5, type=int,
                     help="Velocity may be smoothed via median filtering. " +
                     "Set this argument to an integer window size to apply " +
                     "smoothing. Default is 5 points (5 minute smoothing).")
+parser.add_argument("-d", "--datasrc", default='rtsw', type=str,
+                    help="Set data source: ace or rtsw.")
 parser.add_argument("-v", "--verbose", default=False, action='store_true',
                     help="Turn on verbose output mode.")
 parser.add_argument("-w", "--wait", default=300, type=int,
@@ -51,16 +53,74 @@ args = parser.parse_args()
 address_swe = 'https://services.swpc.noaa.gov/text/ace-swepam.txt'
 address_mag = 'https://services.swpc.noaa.gov/text/ace-magnetometer.txt'
 
+address_rt = 'https://services.swpc.noaa.gov/products/solar-wind/'
+# mag-6-hour.json
+
 allvars = ['n', 'ux', 't', 'bx', 'by', 'bz']
 units = {v: u for v, u in zip(allvars, ['cm-3', 'km/s', 'K'] + 3*['nT'])}
 
 # Declare important constants
+badflag = -999.0       # Bad data flag.
 RE = 6371              # Earth radius in kmeters.
 l1_dist = 1495980      # L1 distance in km.
 kboltz = 1.380649E-23  # Boltzmann constant, J/K
 mp = 1.67262192E-27    # Proton mass in Kg
 bound_dist = 32 * RE   # Distance to BATS-R-US upstream boundary from Earth.
 travel_dist = l1_dist - bound_dist  # Actual distance to propagate.
+
+
+def unify_time(time1, time2):
+    '''
+    Given two timeseries, combine all unique points into a single array.
+    '''
+
+    time1 = time1.tolist()
+    time2 = time2.tolist()
+
+    for t in time2:
+        if t not in time1:
+            time1.append(t)
+
+    time1.sort()
+    return np.array(time1)
+
+
+def pair(time1, data, time2, **kwargs):
+    '''
+    Use linear interpolation to pair two timeseries of data.  Data set 1
+    (data) with time t1 will be interpolated to match time set 2 (t2).
+    The returned values, d3, will be data set 1 at time 2.
+    No extrapolation will be done; t2's boundaries should encompass those of
+    t1.
+
+    Bad data values will be removed prior to interpolation.
+
+    **kwargs** will be handed to scipy.interpolate.interp1d
+    A common option is to set fill_value='extrapolate' to prevent
+    bounds errors.
+    '''
+
+    from scipy.interpolate import interp1d
+    from matplotlib.dates import date2num
+
+    # Dates to floats:
+    t1 = date2num(time1)
+    t2 = date2num(time2)
+
+    # Search for bad data values and remove:
+    loc = ~np.isfinite(data) | (data <= badflag)
+
+    # Trim down.
+    t1, data = t1[~loc], data[~loc]
+    if data.size == 0:
+        raise ValueError('No valid data points in this time range.')
+
+    # Create interpolator function
+    func = interp1d(t1, data, fill_value=(data[0], data[-1]),
+                    bounds_error=False, **kwargs)
+
+    # Interpolate and return.
+    return func(t2)
 
 
 def parse_json(stream):
@@ -156,46 +216,105 @@ def parse_ascii(stream):
     return data
 
 
-def fetch_rtsw(raw_swe=None, raw_mag=None):
+def fetch_rtsw(raw_swe=None, raw_mag=None, source='rtsw', duration=2):
     '''
     Fetch the current RT solar wind results and convert to SWMF format.
+    Can fetch either ACE real time or combined ACE/DSCOVR
+
+    Parameters
+    ----------
+    raw_swe, raw_mag : Data stream-like objects, defaults to None
+        Set the data source. This is useful for testing against static file
+        inputs.
+    source : str, defaults to 'rtsw'
+        Set data source, either 'ace' or 'rtsw' for ACE or combined
+        ACE/DSCOVR Real Time Solar Wind data.
+    duration : int, defaults to 2
+        Set the amount of rtsw data to download, in hours. Can be 2 or 6.
     '''
 
+    # Set address and parse strategy
+    if source == 'ace':
+        url_mag, url_pls = address_mag, address_swe
+        parse = parse_ascii
+    elif source == 'rtsw':
+        url_mag = address_rt + f'mag-{duration}-hour.json'
+        url_pls = address_rt + f'plasma-{duration}-hour.json'
+        parse = parse_json
+
+    # Data stream not provided, create:
     if raw_swe is None:
-        raw_swe = parse_ascii(urllib.request.urlopen(address_swe))
+        raw_swe = parse(urllib.request.urlopen(url_pls))
     if raw_mag is None:
-        raw_mag = parse_ascii(urllib.request.urlopen(address_mag))
+        raw_mag = parse(urllib.request.urlopen(url_mag))
 
-    # Check times: are we consistent?
-    if (raw_swe['time'].size != raw_mag['time'].size) or \
-       (raw_swe['time'][0] != raw_mag['time'][0]) or \
-       (raw_swe['time'][-1] != raw_mag['time'][-1]):
-        raise ValueError('SWEPAM and MAG times do not match.')
-
-    # Combine data sets.
-    data = raw_swe
+    # We want no extrapolation into the future of any variable.
+    # Remove trailing bad data values by finding the last good point for all
+    # existing variables.
+    # First, plasma data:
+    locgood = True + np.zeros(raw_swe['time'].size, dtype=bool)
+    for v in allvars[:3]:
+        locgood = (locgood) & (raw_swe[v] > badflag)
+    lastgood_p = raw_swe['time'][locgood][-1]
+    # Then, mag data:
+    locgood = True + np.zeros(raw_mag['time'].size, dtype=bool)
     for v in allvars[3:]:
-        data[v] = raw_mag[v]
+        locgood = (locgood) & (raw_mag[v] > badflag)
+    lastgood_m = raw_mag['time'][locgood][-1]
 
-    # Remove bad data values.
-    time = date2num(data['time'])
-    for v in allvars:
-        # Get all valid points.
-        locgood = data[v] > -999
+    # Find common last-good point:
+    lastgood = min(lastgood_m, lastgood_p)
+    print(f'\tLast valid data point is {lastgood}')
 
-        # If no valid points, raise exception.
-        # If no bad points, no need to fill.
-        if locgood.sum() == 0:
-            raise ValueError(f'No valid data for variable {v}.')
-        elif locgood.sum() == data['time'].size:
-            continue
+    # Trim down to last good data point
+    loc = raw_swe['time'] <= lastgood
+    for v in ['time'] + allvars[:3]:
+        raw_swe[v] = raw_swe[v][loc]
+    loc = raw_mag['time'] <= lastgood
+    for v in ['time'] + allvars[3:]:
+        raw_mag[v] = raw_mag[v][loc]
 
-        # Linearly interpolate over bad values, using "last good value"
-        # for the final points.
-        tfilt, vfilt = time[locgood], data[v][locgood]
-        func = interp1d(tfilt, vfilt, fill_value=(vfilt[0], vfilt[-1]),
-                        bounds_error=False)
-        data[v] = func(time)
+    # Get unified time:
+    t_swe, t_mag = raw_swe['time'], raw_mag['time']
+    time = unify_time(t_swe, t_mag)
+
+    # Finally, pair the two data sets into one time series with no gaps.
+    data = {'time': time}
+    for v in allvars[:3]:
+        data[v] = pair(raw_swe['time'], raw_swe[v], time)
+    for v in allvars[3:]:
+        data[v] = pair(raw_mag['time'], raw_mag[v], time)
+
+    # # Check times: are we consistent?
+    # if (raw_swe['time'].size != raw_mag['time'].size) or \
+    #    (raw_swe['time'][0] != raw_mag['time'][0]) or \
+    #    (raw_swe['time'][-1] != raw_mag['time'][-1]):
+    #     raise ValueError('SWEPAM and MAG times do not match.')
+#
+    # # Combine data sets.
+    # data = raw_swe
+    # for v in allvars[3:]:
+    #     data[v] = raw_mag[v]
+#
+    # # Remove bad data values.
+    # time = date2num(data['time'])
+    # for v in allvars:
+    #     # Get all valid points.
+    #     locgood = data[v] > badflag
+#
+    #     # If no valid points, raise exception.
+    #     # If no bad points, no need to fill.
+    #     if locgood.sum() == 0:
+    #         raise ValueError(f'No valid data for variable {v}.')
+    #     elif locgood.sum() == data['time'].size:
+    #         continue
+#
+    #     # Linearly interpolate over bad values, using "last good value"
+    #     # for the final points.
+    #     tfilt, vfilt = time[locgood], data[v][locgood]
+    #     func = interp1d(tfilt, vfilt, fill_value=(vfilt[0], vfilt[-1]),
+    #                     bounds_error=False)
+    #     data[v] = func(time)
 
     # Convert velocity to right coords:
     data['ux'] *= -1
@@ -247,9 +366,17 @@ def test_fetch():
     with open(fname1, 'r') as f1, open(fname2, 'r') as f2:
         raw_swe = parse_ascii(f1)
         raw_mag = parse_ascii(f2)
-        imf = fetch_rtsw(raw_swe, raw_mag)
+        imf1 = fetch_rtsw(raw_swe, raw_mag)
 
-    return imf
+    fname1 = 'data/plasma-6-hour.json'
+    fname2 = 'data/mag-6-hour.json'
+    with open(fname1, 'r') as f1, open(fname2, 'r') as f2:
+        raw_swe = parse_json(f1)
+        raw_mag = parse_json(f2)
+        imf2 = fetch_rtsw(raw_swe, raw_mag)
+
+    return imf1, imf2
+
 
 
 # ## START MAIN SCRIPT
@@ -260,7 +387,7 @@ if args.initfile:
     imf.attrs['file'] = args.outfile
 else:
     print('Fetching initial data...')
-    imf = fetch_rtsw()
+    imf = fetch_rtsw(source=args.datasrc, duration=6)
     print('Success! Waiting for updates...')
     sleep(args.wait)
 
@@ -276,14 +403,14 @@ while True:
 
     # Get updated data:
     print('\tFetching data....')
-    imf_new = fetch_rtsw()
+    imf_new = fetch_rtsw(source=args.datasrc, duration=2)
     print('\tSuccess. Saving interim file.')
     imf_new.write()
 
     # Update main data file:
     loc = imf_new['time'] > imf['time'][-1]
     if loc.sum() == 0:
-        print('\nNo new data values.')
+        print('\tNo new data values.')
         sleep(args.wait)
         continue
     print(f'\tAppending {loc.sum()} new values...')
