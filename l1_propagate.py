@@ -557,7 +557,7 @@ else:
                                   'upstream BATS-R-US boundary\n')
 imfout.attrs['header'].append('\n')
 imfout.attrs['coor'] = 'GSM'
-imfout.attrs['satxyz'] = [np.mean(raw['X'])/RE, 0, 0]
+# imfout.attrs['satxyz'] = [np.mean(raw['X'])/RE, 0, 0]
 imfout.attrs['header'].append(f'File created on {datetime.now()}')
 
 imfout.write()
