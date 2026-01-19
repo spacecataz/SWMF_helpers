@@ -46,6 +46,9 @@ parser.add_argument("-v", "--verbose", default=False, action='store_true',
                     help="Turn on verbose output mode.")
 parser.add_argument("-w", "--wait", default=300, type=int,
                     help="Set wait time between refreshing data in seconds.")
+parser.add_argument("-r", "--refresh", default=20, type=int,
+                    help="Set waiting time before refreshing real time data " +
+                    "stream when an error is returned.")
 # delay between pulls.
 args = parser.parse_args()
 
@@ -371,7 +374,12 @@ while True:
 
     # Get updated data:
     print('\tFetching data....')
-    imf_new = fetch_rtsw(source=args.datasrc, duration=2)
+    try:
+        imf_new = fetch_rtsw(source=args.datasrc, duration=2)
+    except:
+        print('\tWeb exception detected. Retrying...')
+        sleep(args.refresh)
+        continue
     print(f'\tSuccess. Saving interim file to {imf_new.attrs["file"]}')
     imf_new.write()
 
