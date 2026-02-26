@@ -15,22 +15,29 @@ Users should be aware of this limitation when running into issues.
 
 | Script Name | Description |
 | --------------------------|------------------------|
-| CatLog.py   | Carefully concatenate partial log files, virtual mag/sat files, and others into a single output file.  |
-| RepairLog.py | Repair logfile-like files that have overlapping time entries. |
 | calc_rim_I.py | Calculate integrated FAC from a series of RIM output files. |
+| CatLog.py  | Carefully concatenate partial log files, virtual mag/sat files, and others into a single output file.  |
 | cleanup.pl | Remove output, temporary, and restart files from an SWMF run directory. |
+| concat_outs.py | Concatenate many `*.out` files into `*.outs` movie files. |
 | convert_mags.py | Convert SWMF virtual magnetometer files into CCMC-like output files. |
 | countfiles.py | Count files in the current working directory, list in order from most to fewest. |
 | countfiles.sh | Count files in the current working directory, list in alphabetical order (faster than Python version). |
+| create_iono_frames.py | Create a series of PNG files from a RIM simulation. |
 | create_mhd_movieframes.py | Create a series of PNG files from a geospace simulation. |
 | ezquota.py | Check file quota status on NASA's Pleiades supercomputer. |
+| gen_ace_realtime.py | Create and continuously update a solar wind input file from real-time data. |
 | l1_propagate.py | Ballistically propagate solar wind parameters from L1 to the SWMF upstream boundary. |
+| mag_compare.py | Generate quick-look data-model comparisons for SWMF and SuperMag magnetometer data. |
 | maggrid_extract.py | Extract a time series of values from a series of magnetometer grid output files. |
-| make_movie.py | Using FFMPEG, turn a series of PNG files into a movie file.
+| make_movie.py | Using FFMPEG, turn a series of PNG files into a movie file. |
 | plot_sim_summary.py | Create a summary plot for a geospace simulation. |
+| process_sme.py | Create SME indexes from a set of magnetometer grid outputs. |
+| rangescan.py | Determine the range of values inside of an SWMF output set. |
+| RepairLog.py | Repair logfile-like files that have overlapping time entries. |
 | runeff.py | Check the run efficiency of a simulation using its log file. |
 | swmf_orbit_fetcy.py | Fetches satellite trajectories and creates SWMF virtual satellite input files. |
-| mag_compare.py | Generate quick-look data-model comparisons for SWMF and SuperMag magnetometer data. |
+| unpack_outs.py | Unpack an `*.outs` movie file into a set of single-frame `*.out` files. |
+
 
 ## Dependencies
 Dependencies are not consistent across all scripts.  For example,
