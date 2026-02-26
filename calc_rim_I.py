@@ -33,6 +33,20 @@ integrated azimuthal current ("jphi").
 
 Output units are in Mega-Amps (MA). (...at least for iFACs. Need to verify for
 azimuthal current.)
+
+Variable Summary
+----------------
+
+Each has a 'n' or 's' prefix, specifying the hemisphere.
+
+| Name           | Value                                                      |
+|----------------|------------------------------------------------------------|
+| time           | Vector of datetimes                                        |
+| Up, Down, All  | Integrated FAC; 'All' is net current (up + down ~= 0)      |
+| PhiMax, PhiMin | Max (eastward) and min (westward) electrojet (J_phi) value |
+| dayI, nightI   | Integrated absolute value of FAC per region                |
+| dayJ, nightJ   | Integrated absolute value of J_phi per region              |
+
 '''
 
 # Load relevant modules
