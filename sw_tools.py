@@ -313,8 +313,12 @@ def fetch_ace_hapi(tstart, tend, outname=None, verbose=False):
     swevar = 'Np,Tpr,alpha_ratio,V_GSM'
     magvar = 'BGSM,SC_pos_GSM'
 
-    swe, meta = hapi(hapiserv, swedat, swevar, tstart.isoformat(), tend.isoformat())
-    mag, meta = hapi(hapiserv, magdat, magvar, tstart.isoformat(), tend.isoformat())
+    t1, t2 = tstart.isoformat(), tend.isoformat()
+    swe, meta = hapi(hapiserv, swedat, swevar, t1, t2)
+    mag, meta = hapi(hapiserv, magdat, magvar, t1, t2)
+
+    if swe.size <= 1 or mag.size <= 1:
+        raise ValueError('No data for SWE or MFI')
 
     # Get unified time:
     t_swe, t_mag = convert_hapi_t(swe['Time']), convert_hapi_t(mag['Time'])
