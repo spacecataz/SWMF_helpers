@@ -27,7 +27,7 @@ import sys
 installdir = path.dirname(__file__)
 sys.path.append(installdir)
 
-import sw_tools
+import swtools
 
 style()
 
@@ -79,7 +79,7 @@ if args.source.lower() in ('ace', 'dscover', 'wind'):
         tend = datetime.strptime(args.end, '%Y%m%d')
 
     # Fetch data:
-    raw = sw_tools.fetch_hapi(args.source.lower(), tstart, tend,
+    raw = swtools.fetch_hapi(args.source.lower(), tstart, tend,
                               outname=args.outfile + '_l1raw')
 
 elif args[-4] == '.cdf':
@@ -90,5 +90,5 @@ else:
     raise ValueError('Unrecognized data source.')
 
 # STEP 2: Propagate:
-sw_tools.l1_propagate(raw, outfile=args.outfile, shift=args.tshift,
+swtools.l1_propagate(raw, outfile=args.outfile, shift=args.tshift,
                       smoothwin=args.smoothing, verbose=args.verbose)

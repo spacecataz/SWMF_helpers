@@ -16,8 +16,8 @@ Users should be aware of this limitation when running into issues.
 SWMF_helpers includes a set of modules that support scripts.
 
 | Module Name | Description |
-| --------------------------|------------------------|
-| sw_tools.py | Tools for fetching and processing of solar wind files. |
+| --------------------------------------------------|
+| swtools.py  | Tools for fetching and processing of solar wind files. |
 
 ## Script Summary
 
