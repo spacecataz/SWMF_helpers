@@ -11,6 +11,14 @@ shell scripts.  Read the individual help information for full descriptions
 Many rely on Spacepy, sometimes on *development versions* of Spacepy.
 Users should be aware of this limitation when running into issues.
 
+## Module Summary
+
+SWMF_helpers includes a set of modules that support scripts.
+
+| Module Name | Description |
+| --------------------------|------------------------|
+| sw_tools.py | Tools for fetching and processing of solar wind files. |
+
 ## Script Summary
 
 | Script Name | Description |
@@ -56,3 +64,4 @@ This table quickly summarizes what is needed:
 |NASA CDF | >=3.6.X | Requirement for Spacepy |
 |Spacepy >=0.2.3| Handles SWMF output, expedites visualization. |
 |ffmpeg | Used to convert images into movie files. |
+|hapiclient >= 0.2.6 | Used for fetching data from CDAweb, other sources. |
