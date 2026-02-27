@@ -41,6 +41,16 @@ swmf_vars = ['bx', 'by', 'bz', 'ux', 'uy', 'uz', 'n', 't']
 units = {v: u for v, u in zip(swmf_vars, 3*['nT']+3*['km/s']+['cm-3', 'K'])}
 
 
+def convert_hapi_t(time):
+    '''
+    Convert HAPI time stamps into arrays of datetime objects.
+    '''
+
+    from dateutil.parser import parse
+
+    return np.array([parse(t.decode('utf-8')) for t in time])
+
+
 def gse_to_gsm(x, y, z, time):
     '''
     Use spacepy's Coord module to rotate from GSE to GSM.
@@ -272,7 +282,7 @@ def read_ace_cdf(fname, fname2=None, outname=None, verbose=False):
     if outname:
         swout.write()
 
-    return raw
+    return swout
 
 
 def fetch_ace_hapi(tstart, tend, outname=None, verbose=False):
@@ -299,9 +309,69 @@ def fetch_ace_hapi(tstart, tend, outname=None, verbose=False):
         The resulting ImfInput object.
     '''
 
-    swedat, swemag = 'AC_H0_SWE', 'AC_H0_MFI'
+    swedat, magdat = 'AC_H0_SWE', 'AC_H0_MFI'
+    swevar = 'Np,Tpr,alpha_ratio,V_GSM'
+    magvar = 'BGSM,SC_pos_GSM'
 
-    swe, meta = hapi(server, swedat)
+    swe, meta = hapi(hapiserv, swedat, swevar, tstart.isoformat(), tend.isoformat())
+    mag, meta = hapi(hapiserv, magdat, magvar, tstart.isoformat(), tend.isoformat())
+
+    # Get unified time:
+    t_swe, t_mag = convert_hapi_t(swe['Time']), convert_hapi_t(mag['Time'])
+    time = unify_time(t_swe, t_mag)
+
+    # Extract plasma parameters from SWEPAM
+    raw = {'time': time,
+           'n': pair(t_swe, swe['Np'][:], time, varname='n'),
+           't': pair(t_swe, swe['Tpr'][:], time, varname='t'),
+           'ux': pair(t_swe, swe['V_GSM'][:, 0], time, varname='ux'),
+           'uy': pair(t_swe, swe['V_GSM'][:, 1], time, varname='uy'),
+           'uz': pair(t_swe, swe['V_GSM'][:, 2], time, varname='uz')}
+
+    # Optional values:
+    if 'SC_pos_GSM' in mag.dtype.names:
+        raw['pos'] = pair(t_mag, mag['SC_pos_GSM'][:, 0], time, 'pos')
+    if 'alpha_ratio' in swe.dtype.names:
+        raw['alpha'] = pair(t_swe, swe['alpha_ratio'][:], time, 'alpha')
+
+    # Pair high-time resolution mag data to SWEPAM time:
+    for i, b in enumerate(['bx', 'by', 'bz']):
+        raw[b] = pair(t_mag, mag['BGSM'][:, i], time, varname=b)
+
+    # Create IMF object:
+    npts = raw['time'].size
+    swout = ImfInput(filename=outname, load=False, npoints=npts)
+
+    for v in swmf_vars:
+        swout[v] = dmarray(raw[v], {'units': units[v]})
+    swout['time'] = raw['time']
+    swout['alpha'] = dmarray(raw['alpha'], {'units': 'ratio'})
+    swout['pos'] = dmarray(raw['pos'], {'units': 'km'})
+
+    # Build header:
+    avgdist = raw['pos'].mean() / RE
+    swout.attrs['header'].append('Data obtained from CDAWeb HAPI\n')
+    swout.attrs['header'].append(f'File created on {datetime.now()}\n')
+    swout.attrs['header'].append(f'SC mean distance from Earth: {avgdist}RE\n')
+    swout.attrs['header'].append('\n')
+    swout.attrs['coor'] = 'GSM'
+
+    # Save data as necessary:
+    if outname:
+        swout.write()
+
+    return swout
+
+
+def fetch_wind_hapi(tstart, tend, outname=None, verbose=False):
+    # Variables for interfacing with CDAweb's HAPI server:
+
+    swedat, magdat = 'WI_H1S_SWE', 'WI_H0_MFI@1'
+    swevar = ''
+    magvar = 'B3GSM'
+
+    swe, meta = hapi(hapiserv, swedat, swevar, tstart, tend)
+    mag, meta = hapi(hapiserv, magdat, magvar, tstart, tend)
 
 
 def l1_propagate(swfile, outfile=None, tshift=-1.0, smoothwin=1,
