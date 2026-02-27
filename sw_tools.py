@@ -374,7 +374,42 @@ def fetch_wind_hapi(tstart, tend, outname=None, verbose=False):
     mag, meta = hapi(hapiserv, magdat, magvar, tstart, tend)
 
 
-def l1_propagate(swfile, outfile=None, tshift=-1.0, smoothwin=1,
+def fetch_dscovr_hapi(tstart, tend, outname=None, verbose=False):
+    pass
+
+
+def fetch_hapi(source, tstart, tend, outname=None, verbose=False):
+    '''
+    Convenience function for fetching solar wind data from CDAWeb via HAPI.
+
+    Parameters
+    ----------
+    source : str
+        Select source: 'ace', 'dscovr', 'wind'
+    tstart, tend : datetime.datetime objects
+        The start and end time of the interval to fetch.
+    outname : str, defaults to None
+        If given, sets the output file name in the resulting SWMF object and
+        saves the file to disk.
+    verbose : bool, defaults to False
+        Activate verbose mode.
+
+    Returns
+    -------
+    swout: spacepy.pybats.ImfInput
+        The resulting ImfInput object.
+    '''
+
+    funcs = {
+        'ace': fetch_ace_hapi,
+        'dscovr': fetch_dscovr_hapi,
+        'wind': fetch_wind_hapi
+             }
+
+    return funcs[source](tstart, tend, outname, verbose)
+
+
+def l1_propagate(swfile, outfile=None, shift=-1.0, smoothwin=1,
                  verbose=False):
     '''
     Given an SWMF ImfInput object or file with data assumed to be at L1,
@@ -400,7 +435,7 @@ def l1_propagate(swfile, outfile=None, tshift=-1.0, smoothwin=1,
     outfile : str, defaults to None
         The name of the output file. If given, data is saved to disk after
         propagtion.
-    tshift : float, defaults to -1
+    shift : float, defaults to -1
         The time shift given in minutes. If -1, use dynamic ballistic
         propagation (default behavior).
     smoothwin : int, defaults to 1
@@ -410,7 +445,7 @@ def l1_propagate(swfile, outfile=None, tshift=-1.0, smoothwin=1,
     '''
 
     # Get data.
-    if type(swfile) is type(ImfInput):
+    if type(swfile) is ImfInput:
         raw = swfile
     else:
         raw = ImfInput(swfile)
@@ -435,17 +470,18 @@ def l1_propagate(swfile, outfile=None, tshift=-1.0, smoothwin=1,
     velsmooth = medfilt(raw['ux'], smoothwin)
 
     # Shift time: distance/velocity = timeshift (negative in GSM coords)
-    if tshift >= 0:
+    if shift >= 0:
         if verbose:
-            print(f'Using a STATIC timeshift of {tshift} minutes.')
-            shift = np.zeros(raw['time'].size) + tshift * 60.0
+            print(f'Using a STATIC timeshift of {shift} minutes.')
+            shift = np.zeros(raw['time'].size) + shift * 60.0
     else:
         if verbose:
             print('Using BALLISTIC propagation.')
-        shift = raw['X']/velsmooth  # Time shift per point.
+        lags = raw['X']/velsmooth  # Time shift per point.
     # Apply shift to times.
     tshift = np.array([t1 - timedelta(seconds=t2) for t1, t2 in
-                       zip(raw['time'], shift)])
+                       zip(raw['time'], lags)])
+
     # Ensure that any points that are "overtaken" (i.e., slow wind overcome by
     # fast wind) are removed. First, locate those points:
     keep = [0]
@@ -462,16 +498,18 @@ def l1_propagate(swfile, outfile=None, tshift=-1.0, smoothwin=1,
 
     # Create new IMF object and populate with propagated values.
     # Use the information above to throw out overtaken points.
-    imfout = ImfInput(outfile+'.dat', load=False, npoints=len(keep))
+    if outfile is not None:
+        outfile = outfile + '.dat'*(outfile[-4:] != '.dat')
+    imfout = ImfInput(outfile, load=False, npoints=len(keep))
     for v in swmf_vars:
         imfout[v] = dmarray(raw[v][keep], {'units': units[v]})
     imfout['time'] = tshift[keep]
     imfout.attrs['header'] = raw.attrs['header']
 
-    if tshift >= 0:
+    if shift >= 0:
         imfout.attrs['header'].append('Propagted from L1 to upstream ' +
                                       'BATS-R-US boundary using a constant ' +
-                                      f'time delay of {tshift} minutes.\n')
+                                      f'time delay of {shift} minutes.\n')
     else:
         imfout.attrs['header'].append('Ballistically propagted from L1 to ' +
                                       'upstream BATS-R-US boundary\n')
