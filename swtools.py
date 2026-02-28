@@ -583,11 +583,10 @@ def fetch_wind_hapi(tstart, tend, outname=None, verbose=False):
 
     # Extract magnetic field parameters:
     for i, b in enumerate(['bx', 'by', 'bz']):
-        raw[b] = pair(t_mag, mag['BGSM'][:, i], raw['time'], varname=b)
+        raw[b] = pair(t_mag, mag['B3GSM'][:, i], raw['time'], varname=b)
 
-    # Optional values: Update with more experience w/ wind...
-    if 'xgse' in swe:
-        raw['pos'] = pair(t_swe, swe['xgse'], raw['time'], varname='pos') * RE
+    # Stash position as well.
+    raw['pos'] = pair(t_swe, swe['xgse'], raw['time'], varname='pos') * RE
 
     # Create IMF object:
     npts = raw['time'].size
