@@ -600,7 +600,7 @@ def fetch_wind_hapi(tstart, tend, outname=None, verbose=False):
 
     # Build header:
     avgdist = raw['pos'].mean() / RE
-    swout.attrs['header'].append(f'Wind data obtained from CDAWeb HAPI\n')
+    swout.attrs['header'].append('Wind data obtained from CDAWeb HAPI\n')
     swout.attrs['header'].append(f'File created on {datetime.now()}\n')
     swout.attrs['header'].append(f'SC mean distance from Earth: {avgdist}RE\n')
     swout.attrs['header'].append('\n')
@@ -611,6 +611,7 @@ def fetch_wind_hapi(tstart, tend, outname=None, verbose=False):
         swout.write()
 
     return swout
+
 
 def fetch_dscovr_hapi(tstart, tend, outname=None, verbose=False):
     pass
