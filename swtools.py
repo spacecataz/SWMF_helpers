@@ -40,6 +40,9 @@ bound_dist = 32 * RE   # Distance to BATS-R-US upstream boundary from Earth.
 swmf_vars = ['bx', 'by', 'bz', 'ux', 'uy', 'uz', 'n', 't']
 units = {v: u for v, u in zip(swmf_vars, 3*['nT']+3*['km/s']+['cm-3', 'K'])}
 
+# Variable names for single-file wind CDFs.
+wind_vars = ['BX', 'BY', 'BZ', 'VX', 'VY', 'VZ', 'Np', 'TEMP']
+
 
 def convert_hapi_t(time):
     '''
@@ -206,6 +209,9 @@ def read_ace_cdf(fname, fname2=None, outname=None, verbose=False):
 
     '''
 
+    # Add suffix to output file if not given:
+    outname = outname + '.dat'*(outname[-4:] != '.dat')
+
     # Get critical parts of file name:
     result = re.search('ac\_h\ds\_(mfi|swe)\_(\d+)\_(\d+)(\_cdaweb)?\.cdf',
                        fname)
@@ -268,6 +274,179 @@ def read_ace_cdf(fname, fname2=None, outname=None, verbose=False):
         swout[v] = dmarray(raw[v], {'units': units[v]})
     swout['time'] = raw['time']
     swout['alpha'] = dmarray(raw['alpha'], {'units': 'ratio'})
+    swout['pos'] = dmarray(raw['pos'], {'units': 'km'})
+
+    # Build header:
+    avgdist = raw['pos'].mean() / RE
+    swout.attrs['header'].append(f'Source data: \n\t{fname}\n\t{fname2}\n')
+    swout.attrs['header'].append(f'File created on {datetime.now()}\n')
+    swout.attrs['header'].append(f'SC mean distance from Earth: {avgdist}RE\n')
+    swout.attrs['header'].append('\n')
+    swout.attrs['coor'] = 'GSM'
+
+    # Save data as necessary:
+    if outname:
+        swout.write()
+
+    return swout
+
+
+def read_wind_cdf(fname, fname2=None, outname=None, verbose=False):
+    '''
+    Given 1 of 2 Wind data CDFs (one for plasma, one for B), find the matching
+    CDF and load the data. Build an SWMF input file object and return.
+
+    WIND spacecraft CDFs are multi-file downloads; look for **wi_h1s_swe** and
+    **wi_h0s_mfi** file types on CDAWeb.
+    | Variable Name(s) | Description                                          |
+    |------------------|------------------------------------------------------|
+    | PGSM (optional)  | Distance from Earth (Re) in GSM/GSE coordinates      |
+    | BGSM             | Vector magnetic field (nT) data in GSM coordinates   |
+    | Proton_VX_moment | Vector solar wind velocity (km/s) in GSE coordinates |
+    | Proton_VY_moment | ... in the Y direction                               |
+    | Proton_VZ_moment | ... in the Z direction                               |
+    | Np               | Proton number density (1/ccm)                        |
+    | Proton_W_moment  | Plasma thermal velocity, converted to temperature (K)|
+    | Epoch            | CDF-formatted universal time                         |
+
+    It is possible to obtain single-file formats for WIND; such CDFs must
+    contain the following variables:
+    | Variable Name(s) | Description                                          |
+    |------------------|------------------------------------------------------|
+    | XGSM (optional)  | Distance from Earth (Re) in GSM/GSE coordinates.     |
+    | BX, BY, BZ       | Vector magnetic field (nT) data in GSM coordinates.  |
+    | VX, VY, VZ       | Vector solar wind velocity (km/s) in GSM coordinates.|
+    | Np               | Proton number density (1/ccm)                        |
+    | TEMP             | Plasma temperature (K)                               |
+    | Epoch            | CDF-formatted universal time.                        |
+
+    Parameters
+    ----------
+    fname : str
+        The file path/name for 1 of 2 CDF files for creating an SWMF input
+        file based on downloaded ACE CDFs. Can either be a SWEPAM or MAG
+        data set.
+    fname2 : str, defaults to None
+        The file path/name for the second CDF file. Specify this argument if
+        the function is not automatically finding the file that pairs with
+        the first file (`fname`)
+    outname : str, defaults to None
+        If given, sets the output file name in the resulting SWMF object and
+        saves the file to disk.
+    verbose : bool, defaults to False
+        Activate verbose mode.
+
+    Returns
+    -------
+    swout : spacepy.pybats.ImfInput object
+        The data converted into an SWMF-formatted IMF object. Two additional
+        keys will be added if found in the CDFs: 'alpha' (the alpha ratio) and
+        'pos' (the spacecraft distance from the Earth in km).
+    '''
+
+    # Add suffix to output file if not given:
+    outname = outname + '.dat'*(outname[-4:] != '.dat')
+
+    # Get critical parts of file name:
+    result = re.search('wi(nd)?\_h\ds\_(mfi|swe)\_(\d+)' +
+                       '\_(\d+)(\_cdaweb)?\.cdf', fname)
+
+    # If the above doesn't match, use single-file alternative:
+    if result is None:
+        if verbose:
+            print("Single-file WIND data detected...")
+        # cdf_vars = ['BX', 'BY', 'BZ', 'VX', 'VY', 'VZ', 'Np', 'TEMP']
+        # Open solar wind data and load variables into ImfInput
+        obs = CDF(fname)
+
+        # Create IMF object:
+        npts = obs['Epoch'][...].size
+        swout = ImfInput(filename=outname, load=False, npoints=npts)
+
+        for v, vw in zip(swmf_vars, wind_vars):
+            swout[v] = dmarray(obs[v][...], {'units': units[v]})
+        swout['time'] = obs['Epoch'][...]
+
+        # Build header:
+        swout.attrs['header'].append(f'Source data: \n\t{fname}\n')
+        swout.attrs['header'].append(f'File created on {datetime.now()}\n')
+        swout.attrs['header'].append('\n')
+        swout.attrs['coor'] = 'GSM'
+
+        # Save data as necessary:
+        if outname:
+            swout.write()
+
+        return swout
+
+    # Otherwise, two-file system. Use names to determine file (MFI vs. SWE)
+    has_nd, ftype, stime, etime, cdatag = result.groups()
+
+    if verbose:
+        print("Two-file WIND data detected.")
+        print(f"Found start/end times in file name of {stime}, {etime}")
+
+    # Set path of files.
+    dirname = path.dirname(fname)
+    if dirname == '':
+        dirname = './'
+
+    # Find partner files; load CDFs.
+    if 'swe' in ftype:
+        swe = CDF(fname)
+        # Get matching data:
+        if not fname2:
+            # Build matching name
+            basefile = f'wi*_h?s_mfi_{stime}_{etime}{cdatag}.cdf'
+            fname2 = glob(path.join(dirname, basefile))[0]
+        mag = CDF(fname2)
+    elif 'mfi' in ftype:
+        mag = CDF(fname)
+        # Get  matching data:
+        if not fname2:
+            # Build matching name
+            basefile = f'wi*_h?s_swe_{stime}_{etime}{cdatag}.cdf'
+            fname2 = glob(path.join(dirname, basefile))[0]
+        swe = CDF(fname2)
+    else:
+        raise ValueError('Expected "mfi" or "swe" in CDF file name.')
+
+    # Create unified time:
+    t_swe, t_mag = swe['Epoch'][:], mag['Epoch'][:]
+    time = unify_time(t_swe, t_mag)
+
+    # Convert coordinates:
+    vx, vy, vz = gse_to_gsm(swe['Proton_VX_moment'][:],
+                            swe['Proton_VY_moment'][:],
+                            swe['Proton_VZ_moment'][:], swe['Epoch'][:])
+
+    # Convert temperature
+    temp = (mp/(2*kboltz))*(swe['Proton_W_moment'][:]*1000)**2
+
+    # Extract plasma parameters
+    raw = {'time': time,
+           'n': pair(t_swe, swe['Proton_Np_moment'][:], time, varname='n'),
+           't': pair(t_swe, temp, time, varname='t'),
+           'ux': pair(t_swe, vx, time, varname='ux'),
+           'uy': pair(t_swe, vy, time, varname='uy'),
+           'uz': pair(t_swe, vz, time, varname='uz')}
+
+    # Extract magnetic field parameters:
+    for i, b in enumerate(['bx', 'by', 'bz']):
+        raw[b] = pair(t_mag, mag['BGSM'][:, i], raw['time'], varname=b)
+
+    # Optional values: Update with more experience w/ wind...
+    if 'PGSM' in mag:
+        raw['pos'] = pair(t_mag, mag['PGSM'][:, 0],
+                          raw['time'], varname='pos') * RE
+
+    # Create IMF object:
+    npts = raw['time'].size
+    swout = ImfInput(filename=outname, load=False, npoints=npts)
+
+    for v in swmf_vars:
+        swout[v] = dmarray(raw[v], {'units': units[v]})
+    swout['time'] = raw['time']
     swout['pos'] = dmarray(raw['pos'], {'units': 'km'})
 
     # Build header:

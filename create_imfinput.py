@@ -64,7 +64,7 @@ parser.add_argument("--tshift", "-t", type=float, default=-1.0,
                     "0 sets no propagation.")
 args = parser.parse_args()
 
-# Add postfix to file if not given:
+# Add suffix to file if not given:
 args.outfile = args.outfile + '.dat'*(args.outfile[-4:] != '.dat')
 
 # STEP 1: Fetch or open data:
@@ -80,7 +80,7 @@ if args.source.lower() in ('ace', 'dscover', 'wind'):
 
     # Fetch data:
     raw = swtools.fetch_hapi(args.source.lower(), tstart, tend,
-                              outname=args.outfile + '_l1raw')
+                             outname=args.outfile + '_l1raw')
 
 elif args[-4] == '.cdf':
     pass
@@ -91,4 +91,4 @@ else:
 
 # STEP 2: Propagate:
 swtools.l1_propagate(raw, outfile=args.outfile, shift=args.tshift,
-                      smoothwin=args.smoothing, verbose=args.verbose)
+                     smoothwin=args.smoothing, verbose=args.verbose)
