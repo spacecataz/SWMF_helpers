@@ -76,6 +76,8 @@ dscovr_h0s_mag or dscovr_h1s_fc.
 | Epoch/Epoch1     | CDF-formatted universal time in the fc/mag files.      |
 '''
 
+from time import sleep
+
 from glob import glob
 from os import path
 import re
@@ -124,6 +126,9 @@ parser.add_argument("--tshift", "-t", type=float, default=-1.0,
                     "which uses default ballistic propagation. A value of " +
                     "0 sets no propagation.")
 args = parser.parse_args()
+
+print("THIS SCRIPT IS NOW DEPRICATED. USE CREATE_IMFINPUT.PY")
+sleep(5)
 
 # Declare important constants
 RE = 6371              # Earth radius in kmeters.
