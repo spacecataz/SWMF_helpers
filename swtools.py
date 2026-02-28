@@ -533,7 +533,7 @@ def fetch_ace_hapi(tstart, tend, outname=None, verbose=False):
 
     # Build header:
     avgdist = raw['pos'].mean() / RE
-    swout.attrs['header'].append('Data obtained from CDAWeb HAPI\n')
+    swout.attrs['header'].append('ACE data obtained from CDAWeb HAPI\n')
     swout.attrs['header'].append(f'File created on {datetime.now()}\n')
     swout.attrs['header'].append(f'SC mean distance from Earth: {avgdist}RE\n')
     swout.attrs['header'].append('\n')
@@ -549,13 +549,68 @@ def fetch_ace_hapi(tstart, tend, outname=None, verbose=False):
 def fetch_wind_hapi(tstart, tend, outname=None, verbose=False):
     # Variables for interfacing with CDAweb's HAPI server:
 
-    swedat, magdat = 'WI_H1S_SWE', 'WI_H0_MFI@1'
-    swevar = ''
+    swedat, magdat = 'WI_H1_SWE', 'WI_H0_MFI@1'
+    swevar = 'Proton_VX_moment,Proton_VY_moment,Proton_VZ_moment,' + \
+             'Proton_W_moment,Proton_Np_moment,xgse'
     magvar = 'B3GSM'
 
-    swe, meta = hapi(hapiserv, swedat, swevar, tstart, tend)
-    mag, meta = hapi(hapiserv, magdat, magvar, tstart, tend)
+    t1, t2 = tstart.isoformat(), tend.isoformat()
+    swe, meta = hapi(hapiserv, swedat, swevar, t1, t2)
+    mag, meta = hapi(hapiserv, magdat, magvar, t1, t2)
 
+    if swe.size <= 1 or mag.size <= 1:
+        raise ValueError('No data for SWE or MFI')
+
+    # Get unified time:
+    t_swe, t_mag = convert_hapi_t(swe['Time']), convert_hapi_t(mag['Time'])
+    time = unify_time(t_swe, t_mag)
+
+    # Convert coordinates:
+    vx, vy, vz = gse_to_gsm(swe['Proton_VX_moment'],
+                            swe['Proton_VY_moment'],
+                            swe['Proton_VZ_moment'], t_swe)
+
+    # Convert temperature
+    temp = (mp/(2*kboltz))*(swe['Proton_W_moment']*1000)**2
+
+    # Extract plasma parameters
+    raw = {'time': time,
+           'n': pair(t_swe, swe['Proton_Np_moment'], time, varname='n'),
+           't': pair(t_swe, temp, time, varname='t'),
+           'ux': pair(t_swe, vx, time, varname='ux'),
+           'uy': pair(t_swe, vy, time, varname='uy'),
+           'uz': pair(t_swe, vz, time, varname='uz')}
+
+    # Extract magnetic field parameters:
+    for i, b in enumerate(['bx', 'by', 'bz']):
+        raw[b] = pair(t_mag, mag['BGSM'][:, i], raw['time'], varname=b)
+
+    # Optional values: Update with more experience w/ wind...
+    if 'xgse' in swe:
+        raw['pos'] = pair(t_swe, swe['xgse'], raw['time'], varname='pos') * RE
+
+    # Create IMF object:
+    npts = raw['time'].size
+    swout = ImfInput(filename=outname, load=False, npoints=npts)
+
+    for v in swmf_vars:
+        swout[v] = dmarray(raw[v], {'units': units[v]})
+    swout['time'] = raw['time']
+    swout['pos'] = dmarray(raw['pos'], {'units': 'km'})
+
+    # Build header:
+    avgdist = raw['pos'].mean() / RE
+    swout.attrs['header'].append(f'Wind data obtained from CDAWeb HAPI\n')
+    swout.attrs['header'].append(f'File created on {datetime.now()}\n')
+    swout.attrs['header'].append(f'SC mean distance from Earth: {avgdist}RE\n')
+    swout.attrs['header'].append('\n')
+    swout.attrs['coor'] = 'GSM'
+
+    # Save data as necessary:
+    if outname:
+        swout.write()
+
+    return swout
 
 def fetch_dscovr_hapi(tstart, tend, outname=None, verbose=False):
     pass
