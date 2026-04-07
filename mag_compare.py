@@ -45,9 +45,8 @@ parser.add_argument("-l", "--labels", nargs='+', help='Set legend labels for eac
                     'model included in the comparison')
 parser.add_argument("-o", "--outdir", default='mag_compares', help="Set " +
                     "output directory for plots.  Defaults to ./mag_compares")
-parser.add_argument("-z", "--horizontal", default=False, action='store_true', help="Instead of dBdown, " +
-                    "plot the horizontal component of dB. Requires calculation of " +
-                    "the H component in the SuperMAG reader.")
+parser.add_argument("-z", "--horizontal", default=False, action='store_true',
+                    help="Instead of dBdown, plot the horizontal component of dB.")
 parser.add_argument("--debug", default=False, action='store_true',
                     help="Turn on debugging mode.")
 args = parser.parse_args()
@@ -128,7 +127,7 @@ def comp_mag(name, obs, mod, labels=None, h=False, interactive=False):
         comp2 = 'xyz' # obs
     else:
         comp1 = 'neh'
-        comp2 = 'xyH'
+        comp2 = 'xyh'
 
     # Loop over field component; plot data v. model for each
     for x1, x2, ax in zip(comp1, comp2, (a1, a2, a3)):
@@ -184,11 +183,7 @@ obs = SuperMag(args.obs)
 
 # Check that the observations have the H component:
 if args.horizontal:
-    if 'bH' not in obs['EYR'].keys():
-        print('No bH present in the observations.')
-        print('Be sure to turn on calc_H in __init__.py')
-        print('in the supermag package (line 336).')
-        sys.exit()
+    obs.calc_h()
 
 if args.debug: print('\tReading model data file(s)...')
 mod = [bats.MagFile(x) for x in args.mod]
@@ -201,7 +196,7 @@ for m in mod:
         if namemag not in maglist: maglist.append(namemag)
 
 # Count total number of magnetometers:
-nStats = len(namemag)
+nStats = len(maglist)
 
 # Get list of magnetometers
 for i, station in enumerate(maglist):
