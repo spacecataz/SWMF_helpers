@@ -31,7 +31,15 @@ Set custom time range.
 '''
 
 import os
+import sys
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
+import datetime as dt
+
+import matplotlib.pyplot as plt
+from spacepy.pybats import bats
+from spacepy.plot import style, applySmartTimeTicks
+
+from supermag import SuperMag, read_statinfo
 
 # Start by configuring the argparser:
 parser = ArgumentParser(description=__doc__,
@@ -51,25 +59,17 @@ parser.add_argument("--debug", default=False, action='store_true',
                     help="Turn on debugging mode.")
 args = parser.parse_args()
 
-
-# Post-argument imports:
-import datetime as dt
-import matplotlib.pyplot as plt
-
-from spacepy.pybats import bats
-from spacepy.plot import style, applySmartTimeTicks
-
-from supermag import SuperMag, read_statinfo
-
 # Turn on Spacepy plot styles:
 style()
 
 # Turn on interactive plotting mode when debug is set:
-#if args.debug: plt.ion()
+# if args.debug: plt.ion()
 
 # Load station info:
-if args.debug: print('\tLoading magnetometer station info...')
+if args.debug:
+    print('\tLoading magnetometer station info...')
 mag_info = read_statinfo()
+
 
 def comp_mag(name, obs, mod, labels=None, h=False, interactive=False):
     '''
@@ -92,39 +92,39 @@ def comp_mag(name, obs, mod, labels=None, h=False, interactive=False):
         A list of labels for the plot legend.
 
     h: bool
-        Whether or not to plot the horizontal component instead of the 
+        Whether or not to plot the horizontal component instead of the
         vertical component.
     '''
 
     # Get number of models to include in this comparison:
     nmod = len(mod)
-    
+
     # Create default set of labels if argument not present:
     if not labels:
         labels = [f'Simulation {i+1}' for i in range(nmod)]
 
     # Ensure we have at least as many labels as models:
-    if len(labels)<nmod:
+    if len(labels) < nmod:
         for i in range(nmod-len(labels)):
             labels.append(f'Simulation {nmod-i}')
-        
+
     # Set alpha using number of simulations.
-    #alpha = 1./nmod -- think of another function.
-    alpha = 1.-.3*(nmod>1)
-    
+    # alpha = 1./nmod -- think of another function.
+    alpha = 1.-.3*(nmod > 1)
+
     # Get time range that spans all models:
-    trange = [dt.datetime(3000,1,1),dt.datetime(1,1,1)]
+    trange = [dt.datetime(3000, 1, 1), dt.datetime(1, 1, 1)]
     for m in mod:
-        trange[0]=min(trange[0],m['time'][0])
-        trange[1]=max(trange[1],m['time'][-1])
-        
+        trange[0] = min(trange[0], m['time'][0])
+        trange[1] = max(trange[1], m['time'][-1])
+
     # Create a figure with 3 subplots
     fig = plt.figure(figsize=(10, 10))
     a1, a2, a3 = fig.subplots(3, 1)
 
     if not h:
-        comp1 = 'ned' # model
-        comp2 = 'xyz' # obs
+        comp1 = 'ned'  # model
+        comp2 = 'xyz'  # obs
     else:
         comp1 = 'neh'
         comp2 = 'xyh'
@@ -136,15 +136,16 @@ def comp_mag(name, obs, mod, labels=None, h=False, interactive=False):
             ax.plot(obs['time'], obs[name]['b'+x2], 'k',
                     label='SuperMag Obs.', lw=1.5)
         else:
-            ax.plot([],[], 'k', lw=1.5, label='SuperMag Obs.')
+            ax.plot([], [], 'k', lw=1.5, label='SuperMag Obs.')
 
-        for m,l in zip(mod, labels):
+        for m, l in zip(mod, labels):
             if name in m:
                 if h:
                     # Calculate dBh for the model:
                     m.calc_h()
-                
-                ax.plot(m[name]['time'], m[name]['dB'+x1], label=l, alpha=alpha)
+
+                ax.plot(m[name]['time'], m[name]['dB'+x1],
+                        label=l, alpha=alpha)
                 ax.set_ylabel(f'$\\Delta B_{x2}$ ($nT$)')
 
         # Adjust
@@ -172,20 +173,21 @@ def comp_mag(name, obs, mod, labels=None, h=False, interactive=False):
         plt.show()
 
 
-        
 # Create output directory
 if not os.path.exists(args.outdir):
     os.mkdir(args.outdir)
 
 # Open our data:
-if args.debug: print('\tReading observational data file...')
+if args.debug:
+    print('\tReading observational data file...')
 obs = SuperMag(args.obs)
 
 # Check that the observations have the H component:
 if args.horizontal:
     obs.calc_h()
 
-if args.debug: print('\tReading model data file(s)...')
+if args.debug:
+    print('\tReading model data file(s)...')
 mod = [bats.MagFile(x) for x in args.mod]
 
 # Set station list by finding set of all existing
@@ -193,7 +195,8 @@ mod = [bats.MagFile(x) for x in args.mod]
 maglist = []
 for m in mod:
     for namemag in m.attrs['namemag']:
-        if namemag not in maglist: maglist.append(namemag)
+        if namemag not in maglist:
+            maglist.append(namemag)
 
 # Count total number of magnetometers:
 nStats = len(maglist)
