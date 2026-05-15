@@ -134,11 +134,13 @@ def pair(time1, data, time2, varname=None, verbose=False, **kwargs):
     # Search for bad data values and remove:
     loc = ~np.isfinite(data) | (np.abs(data) >= 1E15)
     if varname in ['n', 'alpha']:
-        loc = (loc) | (data > 1E4)
+        loc = (loc) | (data > 1E4) | (data < 0)
     elif varname == 't':
-        loc = (loc) | (data > 1E7)
+        loc = (loc) | (data > 1E7) | (data < 0)
     elif varname in ['ux', 'uy', 'uz']:
-        loc = (loc) | (np.abs(data) > 1E4)
+        loc = (loc) | (np.abs(data) >= 9999)
+    elif varname in ['bx', 'by', 'bz']:
+        loc = (loc) | (np.abs(data) > 999)
     if verbose:
         print(f"Found {loc.sum():05d} bad data points in variable {varname}")
 
