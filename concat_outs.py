@@ -22,13 +22,21 @@ from glob import glob
 from argparse import ArgumentParser
 
 parser = ArgumentParser(description=__doc__)
-parser.add_argument('--remove', '-rm', help="Remove .out files after " +
-                    'concatenation leaving only the .outs.',
-                    default=True, action='store_true')
+parser.add_argument('--save', '-s', help="Do not remove .out files after " +
+                    'concatenation.', default=True, action='store_true')
 parser.add_argument('--debug', '-d', default=False, action='store_true',
                     help='Turn on verbose debug information.')
+parser.add_argument('--skip3d', '-skip3d', action='store_true', default=False,
+                    help='Skip 3D files.')
 # Handle arguments:
 args = parser.parse_args()
+
+# Report settings in debug mode:
+if args.debug:
+    print('Concat settings:')
+    print(f'\tsave:\t{args.debug}')
+    print(f'\tremove:\t{args.save}')
+    print(f'\tskip3d:\t{args.skip3d}')
 
 # Start by collecting file types that can be concatenated.
 out_raw = glob('GM/*.out') + glob('GM/IO2/*.out') + glob('*.out')
@@ -44,6 +52,12 @@ for f in out_raw:
         else:
             ftypes[x[1]] += [f]
 
+# Skip 3D files if requested:
+if args.skip3d:
+    for k in list(ftypes.keys()):
+        if '3d' in k:
+            ftypes.pop(k)
+
 # Sort file lists; report back to user.
 for f in ftypes:
     ftypes[f].sort()
@@ -54,7 +68,6 @@ if args.debug:
     response = input('Continue [Y/n]?')
     if response == 'n':
         sys.exit()
-
 
 # Now, concatenate.
 for ftype in ftypes:
@@ -80,7 +93,7 @@ for ftype in ftypes:
             with open(filenow, 'rb') as f:
                 out.write(f.read())
         # Only remove files once writing of outs is complete:
-        if args.remove:
+        if not args.save:
             print('\tRemoving individual files...')
             for filenow in ftypes[ftype]:
                 os.remove(filenow)
