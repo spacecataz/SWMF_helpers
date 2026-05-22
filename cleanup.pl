@@ -65,12 +65,14 @@ foreach(<job.*>){
 	    push @pbslist, $1.'.e*';
 	    push @pbslist, $1.'.o*';
 	}
-	if(/mpirun.+(\>|\>\&)\s*(\S+)/){
+	if(/mpiexec.+(\>|\>\&)\s*(\S+)/){
 	    #Check for syntax that appends the date to the log file.
 	    #If it's there, we have to rely on wild cards to delete
 	    #the correct files.
 	    if($2 =~ /\`/){
 		push @loglist, 'log.*';
+		push @loglist, 'runlog.*';
+		push @loglist, 'runlog_*';
 	    }else{
 		push @loglist, $2;
 	    }
