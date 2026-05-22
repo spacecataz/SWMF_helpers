@@ -23,7 +23,7 @@ from argparse import ArgumentParser
 
 parser = ArgumentParser(description=__doc__)
 parser.add_argument('--save', '-s', help="Do not remove .out files after " +
-                    'concatenation.', default=True, action='store_true')
+                    'concatenation.', default=False, action='store_true')
 parser.add_argument('--debug', '-d', default=False, action='store_true',
                     help='Turn on verbose debug information.')
 parser.add_argument('--skip3d', '-skip3d', action='store_true', default=False,
