@@ -83,6 +83,8 @@ for ftype in ftypes:
 
     # Create new file; concatenate each file into it.
     outfile = f"{ftype}{stamp1}_{stamp2}.outs"
+    if os.path.exists(outfile):
+        raise ValueError(f'DANGER! {outfile} already exists.')
     print(f"Creating new file {outfile}")
     with open(outfile, 'wb') as out:
         # Loop over all files in type
