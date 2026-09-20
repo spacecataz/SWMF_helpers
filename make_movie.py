@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 '''
 If FFMpeg is installed, it is simple to make movies out of a series
-of PNG (or similar) files.  Just use this script!  It's not just for PyBats;
+of JPEG (or similar) files.  Just use this script!  It's not just for PyBats;
 it should work with any image series.
 
 This script will combine any files you give it (usual Linux wildcard
-characters accepted) with the FFMpeg command to create a movie.
+characters accepted) with the FFMpeg command to create a movie or gif.
+
+Note that the behavior of the script changes for movie (e.g., *.mp4)
+or gif output types. For gifs, a two-step process is taken to build an
+optimal palette before creating the gif.
 
 As an intermediate step to making the movie, this script places
 the image files into /tmp/.  If this location is unavailable, use
@@ -41,10 +45,13 @@ parser.add_argument("-t", "--tempdir", default='/tmp/', help="Set the " +
 parser.add_argument("-r", "--rate", default=25, type=int, help="Set the " +
                     "frame rate for the input PNGs.  Default is 25.  The " +
                     "lower this number is, the slower the movie will " +
-                    "progress through the PNGs.")
+                    "progress through the images.")
 parser.add_argument("-n", "--nloop", default=0, type=int, help="Set number " +
-                    "of times the video loops. 0 is no looping, -1 is " +
-                    "infinite looping.")
+                    "of times the video loops. For video output, 0 is no " +
+                    "looping, -1 is infinite looping. For gifs, 0 is " +
+                    "infinite looping, -1 for no looping.")
+parser.add_argument("-hold", "--hold", default=0, type=float, help="For " +
+                    "gif outputs, set time to hold last frame.")
 parser.add_argument("-c", "--checksize", default=False, action='store_true',
                     help="If used, ffmpeg will resize images to ensure an " +
                     "even number of pixels.")
@@ -52,11 +59,23 @@ parser.add_argument("--debug", default=False, action='store_true',
                     help="Turn on debugging mode.")
 args = parser.parse_args()
 
+if '.png' in args.files[0]:
+    print('WARNING: ffmpeg does not behave well with PNG files!')
+
+isgif = args.outfile[-4:] == '.gif'
+
 # Default/initial values not handled above:
 bps = 2400
 
+# Turn on/off final frame holding:
+dohold = bool(args.hold)
+
 # Set duration for each slide:
 duration = 1 / args.rate
+
+if args.debug:
+    print(f"Using a per-file duration of {duration}s")
+    print(f"Holding last frame is {dohold} at {args.hold}s")
 
 if len(args.files) == 0:
     print("No files found to convert. Check input syntax.")
@@ -73,11 +92,28 @@ with open('.make_movie_input.txt', 'w') as outfile:
 # for i, ifile in enumerate(args.files):
 #     shutil.copyfile(ifile, '%simg_%08d.png' % (tmp,i))
 
-# Make movie
-cmd = f'ffmpeg -stream_loop {args.nloop:d} ' + \
-      '-f concat -i .make_movie_input.txt ' + \
-      args.checksize * '-vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" ' + \
-      f'-c:v libx264 -pix_fmt yuv420p -r {args.rate} {args.outfile}'
+# Make movie:
+if isgif:
+    if dohold:
+        filt = '"paletteuse,tpad=stop_mode=clone:' + \
+            f'stop_duration={args.hold:.1f}"'
+    else:
+        filt = "paletteuse"
+    # Create color palette:
+    cmd1 = "ffmpeg -f concat -i .make_movie_input.txt " + \
+           f"-vf palettegen -framerate {args.rate} " + \
+           "-update 1 -y palette.png\n"
+    cmd2 = 'ffmpeg -f concat -i  .make_movie_input.txt -i palette.png ' + \
+           f'-filter_complex {filt} ' + \
+           f' -framerate {args.rate} ' + \
+           f'-loop {args.nloop:d} -y {args.outfile}'
+    # f'-vf tpad=stop_mode=clone:stop_duration={args.hold} ' * dohold + \
+    cmd = cmd1 + cmd2
+else:
+    cmd = f'ffmpeg -stream_loop {args.nloop:d} ' + \
+          '-f concat -i .make_movie_input.txt ' + \
+          args.checksize * '-vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" ' + \
+          f'-c:v libx264 -pix_fmt yuv420p -r {args.rate} {args.outfile}'
 
 # args.files -> args.tempdir
 
