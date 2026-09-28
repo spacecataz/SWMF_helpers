@@ -44,7 +44,7 @@ args = parser.parse_args()
 
 # Open the file...
 print(f"Opening mag grid file: {args.fname}")
-# mag = MagGridFile(args.fname)
+mag = MagGridFile(args.fname)
 mag.switch_frame(0)
 mag.calc_h()
 
