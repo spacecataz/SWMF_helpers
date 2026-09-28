@@ -73,7 +73,7 @@ for i in range(1, nframe):
     mag.switch_frame(i)
 
     # Calc dbdt:
-    dt = mag.attrs['runtimes'][i] - mag.attrs['runtimes'][i]
+    dt = mag.attrs['runtimes'][i] - mag.attrs['runtimes'][i-1]
     dn, de = mag['dBn'] - dbn_last, mag['dBe'] - dbe_last
     dbt_now = np.sqrt((dn/dt)**2 + (de/dt)**2)
 
