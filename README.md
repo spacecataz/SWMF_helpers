@@ -34,6 +34,7 @@ SWMF_helpers includes a set of modules that support scripts.
 | create_mhd_movieframes.py | Create a series of PNG files from a geospace simulation. |
 | ezquota.py | Check file quota status on NASA's Pleiades supercomputer. |
 | gen_ace_realtime.py | Create and continuously update a solar wind input file from real-time data. |
+| generate_maggrid_maxB.py | Create arrays of the largest perturbations over the course of a whole simulation. |
 | l1_propagate.py | Ballistically propagate solar wind parameters from L1 to the SWMF upstream boundary. |
 | mag_compare.py | Generate quick-look data-model comparisons for SWMF and SuperMag magnetometer data. |
 | maggrid_extract.py | Extract a time series of values from a series of magnetometer grid output files. |
