@@ -88,6 +88,10 @@ for i in range(1, nframe):
     # Update "last" values:
     dbn_last, dbe_last = mag['dBn'], mag['dBe']
 
+# Convert times to hours:
+data['time_h'] /= 3600.
+data['time_t'] /= 3600.
+
 # Save our data values:
 with open(args.outfile, 'wb') as f:
     dump(data, f)
