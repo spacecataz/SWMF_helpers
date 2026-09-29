@@ -68,7 +68,8 @@ dbn_last, dbe_last = mag['dBn'], mag['dBe']
 
 # ...and away we go!
 for i in range(1, nframe):
-    print(f"Calculating maximums... {i/nframe:6.2%}", end='\r', flush=True)
+    endchar = '\r' if i < nframe - 1 else '\n'
+    print(f"Calculating maximums... {i/nframe:6.2%}", end=endchar, flush=True)
     # Switch time to current:
     mag.switch_frame(i)
 
@@ -93,5 +94,7 @@ data['time_h'] /= 3600.
 data['time_t'] /= 3600.
 
 # Save our data values:
+print('Saving data...', end='')
 with open(args.outfile, 'wb') as f:
     dump(data, f)
+print(' Done!')
