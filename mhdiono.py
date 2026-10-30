@@ -42,7 +42,8 @@ parser.add_argument('-colat', '--colat_max', default=40, type=int, help='Sets co
 parser.add_argument('-tr', '--trace', action='store_true', help='Trace field lines from ionosphere to magnetosphere')
 parser.add_argument('-a', '--alpha', default=0.8, type=float, help='Set alpha for traced values')
 parser.add_argument('-icm', '--iono_cmap', default='gist_heat', type=str, help='Set ionosphere colors')
-# Ex: mhdiono.py -n 56 -mv p ux -iv e-flux sigmah -hemi n_ -tr -m
+parser.add_argument('-lc', '--lat_contour', default=None, type=float, help='Set lat contour of ionosphere for z=0 cut (in degrees)')
+# Ex: mhdiono.py -n 56 -mv p ux -iv e-flux sigmah -hemi n_ -tr -m -lc 5 
 
 # Handle arguments:
 args = parser.parse_args()
@@ -123,7 +124,7 @@ def plot_cuts(yfile=None, zfile=None, ionofile=None, iFile=0, nFiles=1):
                 lims = (0.00001, 100)
                 cmap = 'viridis'
                 uselog=True
-            case 'ppar/p':
+            case 'ppar/p' | 'pepar/pe' | 'ppar/pperp' | 'pepar/peperp':
                 lims = (0.01, 100)
                 cmap = 'seismic'
                 uselog = True
@@ -167,6 +168,12 @@ def plot_cuts(yfile=None, zfile=None, ionofile=None, iFile=0, nFiles=1):
                 var_z = 'b1z'
             if var_z == 'ppar/p':
                 mz['ppar/p'] = mz['ppar'] / mz['p']
+            if var_z == 'pepar/pe':
+                mz['pepar/pe'] = mz['pepar'] / mz['pe']
+            if var_z == 'ppar/pperp':
+                mz['ppar/pperp'] = mz['ppar'] / mz['pperp']
+            if var_z == 'pepar/peperp':
+                mz['pepar/peperp'] = mz['pepar'] / mz['peperp']
             if args.grid:
                 mz.add_grid_plot(target=ax[-1], do_fill=False, do_label=False)
             fig_1, ax_1, cont, cbarz = mz.add_contour('y', 'x', var_z, target=ax[-1], cmap=cmap, dolog=uselog, xlim=args.yrng, ylim=args.xrng,
@@ -174,21 +181,32 @@ def plot_cuts(yfile=None, zfile=None, ionofile=None, iFile=0, nFiles=1):
             ax[-1].set_xlabel('Y $(R_E)$', fontsize=18)
             ax[-1].set_ylabel('X $(R_E)$', fontsize=18)
             if use_cbar:
+                if lims[0] < 0:
+                    cbarz.set_ticks(np.linspace(lims[0], lims[1], 7))
                 cbarz.ax.tick_params(labelsize=16)
                 if 'units' in mz[var_z].attrs:
                     clabel = f"{var}, ({mz[var_z].attrs['units']})"
                 else:
-                    clabel = f"{var_z}"
+                    clabel = f"{var}"
                 cbarz.set_label(clabel, fontsize=18)
 
-        if args.trace and 'status' in mz.keys(): 
-            interpolator = irp.RegularGridInterpolator((iono['n_theta'][:, 0], iono['n_psi'][0, :]), iono['n_e-flux'] * 1000)
+        if args.trace and 'status' in mz.keys() and ionofile is not None:
+            if iono['n_' + args.ionovars[i]].min() >= 0: 
+                interpolator = irp.RegularGridInterpolator((iono['n_theta'][:, 0], iono['n_psi'][0, :]), iono['n_' + args.ionovars[i]])
+                mask = mz['status'] == 3
+                lats, lons = 90 - mz['lat1'][mask], mz['lon1'][mask]
+                interp_values = interpolator((lats, lons))
+                if args.ionovars[i] in ['e-flux', 'e-flux-diffe', 'e-flux-elec', 'e-flux-bbnd', 'e-flux-diffi']:
+                    interp_values *= 1000
+                value_mask = interp_values > maxz[args.ionovars[i]] / 5
+                xs, ys = mz['x'][mask][value_mask], mz['y'][mask][value_mask]
+                ax[-1].scatter(ys, xs, c=interp_values[value_mask], cmap='gist_heat', s=4, alpha=args.alpha, vmin=0, vmax=maxz[args.ionovars[i]])
+
+        if args.lat_contour is not None and 'status' in mz.keys():
             mask = mz['status'] == 3
-            lats, lons = 90 - mz['lat1'][mask], mz['lon1'][mask]
-            interp_values = interpolator((lats, lons))
-            value_mask = interp_values > maxz['e-flux'] / 5
-            xs, ys = mz['x'][mask][value_mask], mz['y'][mask][value_mask]
-            ax[-1].scatter(ys, xs, c=interp_values[value_mask], cmap='gist_heat', s=4, alpha=args.alpha, vmin=0, vmax=maxz['e-flux'])
+            max_lat = np.quantile(mz['lat1'][mask], 0.95)
+            levels = np.arange(args.colat_max, max_lat, args.lat_contour)
+            plt.tricontour(mz['y'][mask], mz['x'][mask], mz['lat1'][mask], levels=levels, colors='k', linewidths=1, alpha=0.25)
 
         ax[-1].invert_xaxis()
             
@@ -203,6 +221,12 @@ def plot_cuts(yfile=None, zfile=None, ionofile=None, iFile=0, nFiles=1):
                 var_y = 'b1y'
             if var_y == 'ppar/p':
                 my['ppar/p'] = my['ppar'] / my['p']
+            if var_y == 'pepar/pe':
+                my['pepar/pe'] = my['pepar'] / my['pe']
+            if var_y == 'ppar/pperp':
+                my['ppar/pperp'] = my['ppar'] / my['pperp']
+            if var_y == 'pepar/peperp':
+                my['pepar/peperp'] = my['pepar'] / my['peperp']
             if args.grid:
                 my.add_grid_plot(target=ax[-1], do_fill=False, do_label=False)
             fig_2, ax_2, cont, cbary = my.add_contour('x', 'z', var_y, target=ax[-1], cmap=cmap, dolog=uselog, xlim=args.xrng, ylim=args.zrng,
@@ -210,10 +234,12 @@ def plot_cuts(yfile=None, zfile=None, ionofile=None, iFile=0, nFiles=1):
             ax[-1].set_xlabel('X $(R_E)$', fontsize=18)
             ax[-1].set_ylabel('Z $(R_E)$', fontsize=18)
             cbary.ax.tick_params(labelsize=16)
+            if lims[0] < 0:
+                cbary.set_ticks(np.linspace(lims[0], lims[1], 7))
             if 'units' in my[var_y].attrs:
-                clabel = f"{var_y}, ({my[var_y].attrs['units']})"
+                clabel = f"{var}, ({my[var_y].attrs['units']})"
             else:
-                clabel = f"{var_y}"
+                clabel = f"{var}"
             cbary.set_label(clabel, fontsize=18)
             if args.mag:
                 my.add_b_magsphere(ax[-1], DoOpen=True)
@@ -345,7 +371,7 @@ if __name__ == '__main__':
         start = time.time()
 
         for i, files in enumerate(zip(yFiles, zFiles)):
-            ionofile = ie_start + 'it' + files[0][-21:-4] + '.idl'
+            ionofile = ie_start + 'it' + files[0][-21:-7] + '000.idl'
             ionofile = ionofile.replace('-', '_')
             if ionofile not in ionoFiles:
                 ionofile = ionofile + '.gz'
