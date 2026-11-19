@@ -5,15 +5,19 @@ Given a SWMF magnetometer grid .outs file, walk through each frame and
 calculate the maximum field perturbation and dB/dt as a function of latitude
 and longitude.
 
-Currently, two values are saved: delta-B_H (the total horizontal component
-of the surface magnetic field) and dB_H/dt (the magnitude of the rate of
-change of the horizontal field). Note the latter uses the definition used in
-the 2013 CCMC-SWPC validation challenge:
+Currently, four magnetic field values are saved:
+ - delta-B_n (the northward component)
+ - delta-B_H (the total horizontal component)
+ - dB_H/dt (the magnitude of the rate of change of the horizontal field)
+ - dB_n/dt (the time derivative of the northward component)
+
+Note the latter uses the definition used in the 2013 CCMC-SWPC validation
+challenge:
 
 dB_h/dt = sqrt((dB_N/dt)^2 + (dB_E/dt)^2)
 
-Additionally, the run time (in seconds from start) of the maximum value
-is saved on the grid.
+For each of the above, the run time (in seconds from start) of the maximum
+value is saved on the grid.
 
 Results are saved as a dictionary stashed into a  Python pickle and can be
 loaded via:
@@ -24,6 +28,12 @@ from pickle import load
 with open('someresults.pkl', 'rb') as f:
     data = load(f)
 ```
+
+Dictionary keys are `dbX`, `dbXt`, and `time_X` for each where 'X' is the
+component of interest (e.g., h or n).
+
+Units are nT, nT/s, and hours.
+
 '''
 
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
@@ -51,11 +61,14 @@ mag.calc_h()
 # Get some basic information, create data object:
 nframe = mag.attrs['nframe']
 nlon, nlat = mag['dBh'].shape
-data = {'dbh': np.zeros([nlon, nlat]), 'dbt': np.zeros([nlon, nlat])}
+data = {'dbh': np.zeros([nlon, nlat]), 'dbn': np.zeros([nlon, nlat]),
+        'dbht': np.zeros([nlon, nlat]), 'dbnt': np.zeros([nlon, nlat])}
 
 # Save time and run time:
 data['time_h'] = np.zeros([nlon, nlat])
-data['time_t'] = np.zeros([nlon, nlat])
+data['time_ht'] = np.zeros([nlon, nlat])
+data['time_n'] = np.zeros([nlon, nlat])
+data['time_nt'] = np.zeros([nlon, nlat])
 
 # Save coordinates:
 data['lon'] = mag['Lon']
@@ -76,22 +89,29 @@ for i in range(1, nframe):
     # Calc dbdt:
     dt = mag.attrs['runtimes'][i] - mag.attrs['runtimes'][i-1]
     dn, de = mag['dBn'] - dbn_last, mag['dBe'] - dbe_last
-    dbt_now = np.sqrt((dn/dt)**2 + (de/dt)**2)
+    dbht_now = np.sqrt((dn/dt)**2 + (de/dt)**2)
+    dbnt_now = dn / dt
 
     # Stash times for biggest values:
     data['time_h'][mag['dBh'] > data['dbh']] = mag.attrs['runtime']
-    data['time_t'][dbt_now > data['dbt']] = mag.attrs['runtime']
+    data['time_n'][mag['dBn'] > data['dbn']] = mag.attrs['runtime']
+    data['time_ht'][dbht_now > data['dbht']] = mag.attrs['runtime']
+    data['time_nt'][dbnt_now > data['dbnt']] = mag.attrs['runtime']
 
     # Stash biggest values:
     data['dbh'] = np.fmax(data['dbh'], mag['dBh'])
-    data['dbt'] = np.fmax(data['dbt'], dbt_now)
+    data['dbn'] = np.fmax(data['dbn'], mag['dBn'])
+    data['dbht'] = np.fmax(data['dbht'], dbt_now)
+    data['dbnt'] = np.fmax(data['dbnt'], dbnt_now)
 
     # Update "last" values:
     dbn_last, dbe_last = mag['dBn'], mag['dBe']
 
 # Convert times to hours:
 data['time_h'] /= 3600.
-data['time_t'] /= 3600.
+data['time_n'] /= 3600.
+data['time_ht'] /= 3600.
+data['time_nt'] /= 3600.
 
 # Save our data values:
 print('Saving data...', end='')
