@@ -16,7 +16,7 @@ challenge:
 
 dB_h/dt = sqrt((dB_N/dt)^2 + (dB_E/dt)^2)
 
-For each of the above, the run time (in seconds from start) of the maximum
+For each of the above, the run time (in hours from start) of the maximum
 value is saved on the grid.
 
 Results are saved as a dictionary stashed into a  Python pickle and can be
@@ -29,8 +29,9 @@ with open('someresults.pkl', 'rb') as f:
     data = load(f)
 ```
 
-Dictionary keys are `dbX`, `dbXt`, and `time_X` for each where 'X' is the
-component of interest (e.g., h or n).
+Dictionary keys are `dbX`, `dbXt`, `time_X`, `time_Xt`for each where 'X' is the
+component of interest (e.g., h or n) and the extra `t` suffix indicates if the
+time corresponds to maximum delta-B or dB/dt.
 
 Units are nT, nT/s, and hours.
 
@@ -75,7 +76,7 @@ data['lon'] = mag['Lon']
 data['lat'] = mag['Lat']
 
 # Arrays to hold data for comparison:
-dbt_now = np.zeros([nlon, nlat])
+dbht_now = np.zeros([nlon, nlat])
 dbn_last, dbe_last = np.zeros([nlon, nlat]), np.zeros([nlon, nlat])
 dbn_last, dbe_last = mag['dBn'], mag['dBe']
 
@@ -94,7 +95,7 @@ for i in range(1, nframe):
 
     # Stash absolute value for convenience:
     dbn_abs = np.abs(mag['dBn'])
-    
+
     # Stash times for biggest values:
     data['time_h'][mag['dBh'] > data['dbh']] = mag.attrs['runtime']
     data['time_n'][np.where(dbn_abs > np.abs(mag['dBn']))] = mag.attrs['runtime']
@@ -104,8 +105,9 @@ for i in range(1, nframe):
     # Stash biggest values:
     data['dbh'] = np.fmax(data['dbh'], mag['dBh'])
     data['dbn'] = np.where(dbn_abs > np.abs(data['dbn']), dbn_abs, data['dbn'])
-    data['dbht'] = np.fmax(data['dbht'], dbt_now)
-    data['dbnt'] = np.fmax(data['dbnt'], dbnt_now)
+    data['dbht'] = np.fmax(data['dbht'], dbht_now)
+    data['dbnt'] = np.where(np.abs(dbnt_now) > np.abs(data['dbnt']),
+                            dbnt_now, data['dbnt']) # np.fmax(data['dbnt'], dbnt_now)
 
     # Update "last" values:
     dbn_last, dbe_last = mag['dBn'], mag['dBe']
