@@ -92,15 +92,18 @@ for i in range(1, nframe):
     dbht_now = np.sqrt((dn/dt)**2 + (de/dt)**2)
     dbnt_now = dn / dt
 
+    # Stash absolute value for convenience:
+    dbn_abs = np.abs(mag['dBn'])
+    
     # Stash times for biggest values:
     data['time_h'][mag['dBh'] > data['dbh']] = mag.attrs['runtime']
-    data['time_n'][mag['dBn'] > data['dbn']] = mag.attrs['runtime']
+    data['time_n'][np.where(dbn_abs > np.abs(mag['dBn']))] = mag.attrs['runtime']
     data['time_ht'][dbht_now > data['dbht']] = mag.attrs['runtime']
     data['time_nt'][dbnt_now > data['dbnt']] = mag.attrs['runtime']
 
     # Stash biggest values:
     data['dbh'] = np.fmax(data['dbh'], mag['dBh'])
-    data['dbn'] = np.fmax(data['dbn'], mag['dBn'])
+    data['dbn'] = np.where(dbn_abs > np.abs(data['dbn']), dbn_abs, data['dbn'])
     data['dbht'] = np.fmax(data['dbht'], dbt_now)
     data['dbnt'] = np.fmax(data['dbnt'], dbnt_now)
 
