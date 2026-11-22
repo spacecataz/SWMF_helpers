@@ -31,8 +31,8 @@ indicate current on either the positive or negative X side of the hemisphere,
 respectively. "I" is integrated field-aligned current ("jr") and "J" is
 integrated azimuthal current ("jphi").
 
-Output units are in Mega-Amps (MA). (...at least for iFACs. Need to verify for
-azimuthal current.)
+Output units are in Mega-Amps (MA) for integrated FACs and micro-amps/m2
+for max/min azimuthal current.
 
 Variable Summary
 ----------------
